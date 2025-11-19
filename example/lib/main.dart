@@ -30,6 +30,7 @@ class _MyAppState extends State<MyApp> {
   final _client = BackgroundHttpClient();
   final List<RequestItem> _requests = [];
   Timer? _statusTimer;
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
@@ -85,6 +86,13 @@ class _MyAppState extends State<MyApp> {
           ),
         );
       });
+      WidgetsBinding.instance.addPostFrameCallback((timeStamp) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+        );
+      });
     } catch (e) {
       // Обработка ошибки
     }
@@ -107,6 +115,13 @@ class _MyAppState extends State<MyApp> {
           ),
         );
       });
+      WidgetsBinding.instance.addPostFrameCallback((timeStamp) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+        );
+      });
     } catch (e) {
       // Обработка ошибки
     }
@@ -126,6 +141,13 @@ class _MyAppState extends State<MyApp> {
             requestFilePath: requestInfo.requestFilePath,
             status: RequestStatus.inProgress,
           ),
+        );
+      });
+      WidgetsBinding.instance.addPostFrameCallback((timeStamp) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
         );
       });
     } catch (e) {
@@ -158,6 +180,13 @@ class _MyAppState extends State<MyApp> {
           ),
         );
       });
+      WidgetsBinding.instance.addPostFrameCallback((timeStamp) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+        );
+      });
     } catch (e) {
       // Обработка ошибки
     }
@@ -174,6 +203,13 @@ class _MyAppState extends State<MyApp> {
             requestFilePath: requestInfo.requestFilePath,
             status: RequestStatus.inProgress,
           ),
+        );
+      });
+      WidgetsBinding.instance.addPostFrameCallback((timeStamp) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
         );
       });
     } catch (e) {
@@ -275,6 +311,7 @@ class _MyAppState extends State<MyApp> {
               child: _requests.isEmpty
                   ? const Center(child: Text('Список запросов пуст'))
                   : ListView.builder(
+                      controller: _scrollController,
                       padding: const EdgeInsets.all(16.0),
                       itemCount: _requests.length,
                       itemBuilder: (context, index) {
