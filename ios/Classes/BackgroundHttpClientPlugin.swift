@@ -37,6 +37,8 @@ public class BackgroundHttpClientPlugin: NSObject, FlutterPlugin, URLSessionDele
             handleGetResponse(call: call, result: result)
         case "cancelRequest":
             handleCancelRequest(call: call, result: result)
+        case "deleteRequest":
+            handleDeleteRequest(call: call, result: result)
         default:
             result(FlutterMethodNotImplemented)
         }
@@ -152,6 +154,28 @@ public class BackgroundHttpClientPlugin: NSObject, FlutterPlugin, URLSessionDele
         
         // Обновляем статус
         saveStatus(requestId: requestId, status: 2, error: "Request cancelled") // 2 = FAILED
+        
+        result(nil)
+    }
+    
+    private func handleDeleteRequest(call: FlutterMethodCall, result: @escaping FlutterResult) {
+        guard let args = call.arguments as? [String: Any],
+              let requestId = args["requestId"] as? String else {
+            result(FlutterError(code: "INVALID_ARGUMENT", message: "Request ID is required", details: nil))
+            return
+        }
+        
+        // Помечаем запрос как отмененный
+        cancelledRequestIds.insert(requestId)
+        
+        // Отменяем активную задачу
+        if let task = activeTasks[requestId] {
+            task.cancel()
+            activeTasks.removeValue(forKey: requestId)
+        }
+        
+        // Удаляем все файлы, связанные с запросом
+        deleteRequestFiles(requestId: requestId)
         
         result(nil)
     }
@@ -730,6 +754,56 @@ public class BackgroundHttpClientPlugin: NSObject, FlutterPlugin, URLSessionDele
         }
         
         return json
+    }
+    
+    /// Удаляет все файлы, связанные с запросом
+    private func deleteRequestFiles(requestId: String) {
+        let fileManager = FileManager.default
+        let storageDir = getStorageDirectory()
+        
+        // Удаляем файл запроса
+        let requestFile = storageDir.appendingPathComponent("requests/\(requestId).json")
+        if fileManager.fileExists(atPath: requestFile.path) {
+            try? fileManager.removeItem(at: requestFile)
+            print("BackgroundHttpClient: Deleted request file: \(requestFile.path)")
+        }
+        
+        // Удаляем файл body_path
+        let bodyPathFile = storageDir.appendingPathComponent("requests/\(requestId).body_path")
+        if fileManager.fileExists(atPath: bodyPathFile.path) {
+            try? fileManager.removeItem(at: bodyPathFile)
+            print("BackgroundHttpClient: Deleted body path file: \(bodyPathFile.path)")
+        }
+        
+        // Удаляем файл body (если существует)
+        let bodyFile = storageDir.appendingPathComponent("request_bodies/\(requestId).body")
+        if fileManager.fileExists(atPath: bodyFile.path) {
+            try? fileManager.removeItem(at: bodyFile)
+            print("BackgroundHttpClient: Deleted body file: \(bodyFile.path)")
+        }
+        
+        // Удаляем файл ответа JSON
+        let responseJsonFile = storageDir.appendingPathComponent("responses/\(requestId).json")
+        if fileManager.fileExists(atPath: responseJsonFile.path) {
+            try? fileManager.removeItem(at: responseJsonFile)
+            print("BackgroundHttpClient: Deleted response JSON file: \(responseJsonFile.path)")
+        }
+        
+        // Удаляем файл ответа (данные)
+        let responseDataFile = storageDir.appendingPathComponent("responses/\(requestId)_response.txt")
+        if fileManager.fileExists(atPath: responseDataFile.path) {
+            try? fileManager.removeItem(at: responseDataFile)
+            print("BackgroundHttpClient: Deleted response data file: \(responseDataFile.path)")
+        }
+        
+        // Удаляем файл статуса
+        let statusFile = storageDir.appendingPathComponent("status/\(requestId).json")
+        if fileManager.fileExists(atPath: statusFile.path) {
+            try? fileManager.removeItem(at: statusFile)
+            print("BackgroundHttpClient: Deleted status file: \(statusFile.path)")
+        }
+        
+        print("BackgroundHttpClient: All files deleted for request: \(requestId)")
     }
     
 }

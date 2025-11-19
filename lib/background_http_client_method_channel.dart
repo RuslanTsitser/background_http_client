@@ -60,4 +60,12 @@ class MethodChannelBackgroundHttpClient
       {'requestId': requestId},
     );
   }
+
+  @override
+  Future<void> deleteRequest(String requestId) async {
+    await methodChannel.invokeMethod<void>(
+      'deleteRequest',
+      {'requestId': requestId},
+    );
+  }
 }

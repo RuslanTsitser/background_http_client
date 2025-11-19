@@ -184,5 +184,60 @@ object FileManager {
             null
         }
     }
+
+    /**
+     * Удаляет все файлы, связанные с запросом
+     */
+    fun deleteRequestFiles(context: Context, requestId: String) {
+        val storageDir = getStorageDir(context)
+        
+        // Удаляем файл запроса
+        val requestsDir = File(storageDir, REQUESTS_DIR)
+        val requestFile = File(requestsDir, "$requestId.json")
+        if (requestFile.exists()) {
+            requestFile.delete()
+            Log.d(TAG, "Deleted request file: ${requestFile.absolutePath}")
+        }
+        
+        // Удаляем файл body_path
+        val bodyPathFile = File(requestsDir, "$requestId.body_path")
+        if (bodyPathFile.exists()) {
+            bodyPathFile.delete()
+            Log.d(TAG, "Deleted body path file: ${bodyPathFile.absolutePath}")
+        }
+        
+        // Удаляем файл body (если существует)
+        val bodyDir = File(storageDir, "request_bodies")
+        val bodyFile = File(bodyDir, "$requestId.body")
+        if (bodyFile.exists()) {
+            bodyFile.delete()
+            Log.d(TAG, "Deleted body file: ${bodyFile.absolutePath}")
+        }
+        
+        // Удаляем файл ответа JSON
+        val responsesDir = File(storageDir, RESPONSES_DIR)
+        val responseJsonFile = File(responsesDir, "$requestId.json")
+        if (responseJsonFile.exists()) {
+            responseJsonFile.delete()
+            Log.d(TAG, "Deleted response JSON file: ${responseJsonFile.absolutePath}")
+        }
+        
+        // Удаляем файл ответа (данные)
+        val responseDataFile = File(responsesDir, "${requestId}_response.txt")
+        if (responseDataFile.exists()) {
+            responseDataFile.delete()
+            Log.d(TAG, "Deleted response data file: ${responseDataFile.absolutePath}")
+        }
+        
+        // Удаляем файл статуса
+        val statusDir = File(storageDir, STATUS_DIR)
+        val statusFile = File(statusDir, "$requestId.json")
+        if (statusFile.exists()) {
+            statusFile.delete()
+            Log.d(TAG, "Deleted status file: ${statusFile.absolutePath}")
+        }
+        
+        Log.d(TAG, "All files deleted for request: $requestId")
+    }
 }
 

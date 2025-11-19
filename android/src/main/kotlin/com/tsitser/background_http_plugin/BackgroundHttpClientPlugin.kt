@@ -49,6 +49,9 @@ class BackgroundHttpClientPlugin :
             "cancelRequest" -> {
                 handleCancelRequest(appContext, call, result)
             }
+            "deleteRequest" -> {
+                handleDeleteRequest(appContext, call, result)
+            }
             else -> {
                 result.notImplemented()
             }
@@ -242,6 +245,45 @@ class BackgroundHttpClientPlugin :
         } catch (e: Exception) {
             Log.e(TAG, "Error cancelling request", e)
             result.error("CANCEL_ERROR", e.message, null)
+        }
+    }
+
+    /**
+     * Обрабатывает удаление запроса и всех связанных файлов
+     */
+    private fun handleDeleteRequest(
+        context: Context,
+        call: MethodCall,
+        result: Result
+    ) {
+        try {
+            @Suppress("UNCHECKED_CAST")
+            val args = call.arguments as? Map<*, *>
+                ?: run {
+                    result.error("INVALID_ARGUMENT", "Request ID is required", null)
+                    return
+                }
+
+            val requestId = args["requestId"] as? String
+                ?: run {
+                    result.error("INVALID_ARGUMENT", "Request ID is required", null)
+                    return
+                }
+
+            val workManager = WorkManager.getInstance(context)
+            
+            // Отменяем все WorkManager задачи для данного запроса
+            workManager.cancelAllWorkByTag("request_$requestId")
+            workManager.cancelAllWorkByTag("request_${requestId}_retry")
+            workManager.cancelAllWorkByTag("request_${requestId}_network_wait")
+
+            // Удаляем все файлы, связанные с запросом
+            FileManager.deleteRequestFiles(context, requestId)
+
+            result.success(null)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error deleting request", e)
+            result.error("DELETE_ERROR", e.message, null)
         }
     }
 

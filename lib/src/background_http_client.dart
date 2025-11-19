@@ -325,5 +325,19 @@ class BackgroundHttpClient {
   Future<void> cancelRequest(String requestId) async {
     await _platform.cancelRequest(requestId);
   }
+
+  /// Удаляет запрос и все связанные файлы по ID
+  ///
+  /// [requestId] - ID запроса для удаления
+  ///
+  /// Удаляет:
+  /// - Все WorkManager задачи (Android) или активные задачи (iOS)
+  /// - Файл запроса
+  /// - Файл ответа (JSON и данные)
+  /// - Файл статуса
+  /// - Файл body запроса (если существует)
+  Future<void> deleteRequest(String requestId) async {
+    await _platform.deleteRequest(requestId);
+  }
 }
 

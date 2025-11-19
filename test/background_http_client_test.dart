@@ -36,6 +36,11 @@ class MockBackgroundHttpClientPlatform
   Future<void> cancelRequest(String requestId) async {
     // Mock implementation
   }
+
+  @override
+  Future<void> deleteRequest(String requestId) async {
+    // Mock implementation
+  }
 }
 
 void main() {

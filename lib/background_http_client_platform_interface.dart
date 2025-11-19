@@ -61,6 +61,13 @@ abstract class BackgroundHttpClientPlatform extends PlatformInterface {
   Future<void> cancelRequest(String requestId) {
     throw UnimplementedError('cancelRequest() has not been implemented.');
   }
+
+  /// Удаляет запрос и все связанные файлы по ID
+  ///
+  /// [requestId] - ID запроса для удаления
+  Future<void> deleteRequest(String requestId) {
+    throw UnimplementedError('deleteRequest() has not been implemented.');
+  }
 }
 
 /// Устаревший метод, оставлен для обратной совместимости
