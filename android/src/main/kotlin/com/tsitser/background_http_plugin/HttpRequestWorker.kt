@@ -238,8 +238,9 @@ class HttpRequestWorker(
         try {
             // Настройка соединения
             connection.requestMethod = request.method
-            connection.connectTimeout = (request.timeout ?: 30000)
-            connection.readTimeout = (request.timeout ?: 30000)
+            // timeout приходит в секундах из Dart, но HttpURLConnection ожидает миллисекунды
+            connection.connectTimeout = (request.timeout ?: 30) * 1000
+            connection.readTimeout = (request.timeout ?: 30) * 1000
 
             // Проверяем, является ли это multipart запросом
             val isMultipart = request.multipartFields != null || request.multipartFiles != null
