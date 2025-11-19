@@ -64,6 +64,7 @@ class HttpRequestWorker(
             
             if (response.status == RequestStatus.FAILED && currentRetriesRemaining > 0) {
                 // Нужна повторная попытка - планируем новый WorkRequest с задержкой
+                // НЕ сохраняем ответ при промежуточных попытках, чтобы не перезаписывать файл
                 val attempt = maxRetries - currentRetriesRemaining + 1
                 val waitSeconds = minOf(2 shl minOf(attempt - 1, 8), 512).toLong()
                 
@@ -103,7 +104,7 @@ class HttpRequestWorker(
                 return@withContext Result.retry()
             }
             
-            // Сохраняем ответ
+            // Сохраняем ответ только при финальном результате (когда нет retries или все retries исчерпаны)
             FileManager.saveResponse(applicationContext, response)
 
             // Обновляем статус
@@ -318,7 +319,8 @@ class HttpRequestWorker(
                 connection.errorStream
             }
 
-            // Всегда сохраняем ответ в файл как байты (без форматирования)
+            // Сохраняем ответ в файл как байты (без форматирования)
+            // Примечание: файл будет перезаписан при каждой попытке, но сохраняется в JSON только при финальном результате
             val contentLength = connection.contentLength.toLong()
             val responseFilePath: String? = if (inputStream != null) {
                 // Записываем байты напрямую в файл

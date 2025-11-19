@@ -461,7 +461,8 @@ public class BackgroundHttpClientPlugin: NSObject, FlutterPlugin, URLSessionDele
                 let contentLength = Int64(data.count)
                 let isLargeFile = contentLength > 100 * 1024 // > 100KB
                 
-                // Всегда сохраняем ответ в файл
+                // Сохраняем ответ в файл
+                // Примечание: файл будет перезаписан при каждой попытке, но сохраняется в JSON только при финальном результате
                 if isLargeFile {
                     // Для больших файлов используем потоковое сохранение
                     responseFilePath = self.saveLargeResponseToFile(requestId: requestId, data: data)
@@ -516,7 +517,7 @@ public class BackgroundHttpClientPlugin: NSObject, FlutterPlugin, URLSessionDele
                 return
             }
             
-            // Сохраняем ответ
+            // Сохраняем ответ только при финальном результате (когда нет retries или все retries исчерпаны)
             self.saveResponse(
                 requestId: requestId,
                 statusCode: httpResponse.statusCode,
