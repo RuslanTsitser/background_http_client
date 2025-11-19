@@ -27,9 +27,13 @@ void main() {
       expect(requestInfo.requestId, isNotEmpty);
       expect(requestInfo.requestFilePath, isNotEmpty);
 
-      // Проверяем статус
+      // Проверяем статус (должен быть не null, так как запрос только что создан)
       final status = await client.getRequestStatus(requestInfo.requestId);
       expect(status, isNotNull);
+      
+      // Проверяем, что для несуществующего запроса возвращается null
+      final nonExistentStatus = await client.getRequestStatus('non-existent-id');
+      expect(nonExistentStatus, isNull);
     } catch (e) {
       // Если нативная реализация еще не готова, тест может упасть
       // Это нормально на этапе разработки

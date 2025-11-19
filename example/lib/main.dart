@@ -53,6 +53,11 @@ class _MyAppState extends State<MyApp> {
       for (final request in pendingRequests) {
         try {
           final status = await _client.getRequestStatus(request.id);
+          
+          // Если статус null, запрос не найден - пропускаем
+          if (status == null) {
+            continue;
+          }
 
           if (status == RequestStatus.completed || status == RequestStatus.failed) {
             final response = await _client.getResponse(request.id);

@@ -142,10 +142,10 @@ class BackgroundHttpClientPlugin :
                 }
 
             val statusInfo = FileManager.loadStatus(context, requestId)
-                ?: run {
-                    result.error("NOT_FOUND", "Request not found", null)
-                    return
-                }
+            if (statusInfo == null) {
+                result.success(null)
+                return
+            }
 
             result.success(statusInfo.status.ordinal)
         } catch (e: Exception) {

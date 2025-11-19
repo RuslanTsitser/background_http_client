@@ -300,9 +300,12 @@ class BackgroundHttpClient {
   ///
   /// [requestId] - ID запроса
   ///
-  /// Возвращает текущий статус запроса
-  Future<RequestStatus> getRequestStatus(String requestId) async {
+  /// Возвращает текущий статус запроса или null, если запрос не найден
+  Future<RequestStatus?> getRequestStatus(String requestId) async {
     final statusIndex = await _platform.getRequestStatus(requestId);
+    if (statusIndex == null) {
+      return null;
+    }
     return RequestStatus.values[statusIndex];
   }
 

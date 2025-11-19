@@ -118,7 +118,7 @@ public class BackgroundHttpClientPlugin: NSObject, FlutterPlugin, URLSessionDele
         if let status = loadStatus(requestId: requestId) {
             result(status)
         } else {
-            result(FlutterError(code: "NOT_FOUND", message: "Request not found", details: nil))
+            result(nil)
         }
     }
     

@@ -17,7 +17,7 @@ class MockBackgroundHttpClientPlatform
   }
 
   @override
-  Future<int> getRequestStatus(String requestId) async {
+  Future<int?> getRequestStatus(String requestId) async {
     return RequestStatus.completed.index;
   }
 
@@ -30,6 +30,39 @@ class MockBackgroundHttpClientPlatform
       'status': RequestStatus.completed.index,
       'responseFilePath': '/path/to/response/file',
     };
+  }
+
+  @override
+  Future<void> cancelRequest(String requestId) async {
+    // Mock implementation
+  }
+
+  @override
+  Future<void> deleteRequest(String requestId) async {
+    // Mock implementation
+  }
+}
+
+class MockBackgroundHttpClientPlatformForNullStatus
+    with MockPlatformInterfaceMixin
+    implements BackgroundHttpClientPlatform {
+  @override
+  Future<Map<String, dynamic>> executeRequest(
+      Map<String, dynamic> requestJson) async {
+    return {
+      'requestId': 'test-request-id',
+      'requestFilePath': '/path/to/request/file',
+    };
+  }
+
+  @override
+  Future<int?> getRequestStatus(String requestId) async {
+    return null;
+  }
+
+  @override
+  Future<Map<String, dynamic>?> getResponse(String requestId) async {
+    return null;
   }
 
   @override
@@ -68,6 +101,15 @@ void main() {
 
     final status = await client.getRequestStatus('test-id');
     expect(status, RequestStatus.completed);
+  });
+
+  test('getRequestStatus returns null when request not found', () async {
+    final client = BackgroundHttpClient();
+    final mockPlatform = MockBackgroundHttpClientPlatformForNullStatus();
+    BackgroundHttpClientPlatform.instance = mockPlatform;
+
+    final status = await client.getRequestStatus('non-existent-id');
+    expect(status, isNull);
   });
 
   test('getResponse returns HttpResponse', () async {

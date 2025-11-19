@@ -40,8 +40,8 @@ abstract class BackgroundHttpClientPlatform extends PlatformInterface {
   ///
   /// [requestId] - ID запроса
   ///
-  /// Возвращает индекс статуса в enum [RequestStatus]
-  Future<int> getRequestStatus(String requestId) {
+  /// Возвращает индекс статуса в enum [RequestStatus] или null, если запрос не найден
+  Future<int?> getRequestStatus(String requestId) {
     throw UnimplementedError(
         'getRequestStatus() has not been implemented.');
   }

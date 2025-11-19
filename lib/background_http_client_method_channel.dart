@@ -27,18 +27,20 @@ class MethodChannelBackgroundHttpClient
   }
 
   @override
-  Future<int> getRequestStatus(String requestId) async {
-    final result = await methodChannel.invokeMethod<int>(
-      'getRequestStatus',
-      {'requestId': requestId},
-    );
-    if (result == null) {
-      throw PlatformException(
-        code: 'GET_STATUS_FAILED',
-        message: 'Failed to get request status',
+  Future<int?> getRequestStatus(String requestId) async {
+    try {
+      final result = await methodChannel.invokeMethod<int>(
+        'getRequestStatus',
+        {'requestId': requestId},
       );
+      return result;
+    } on PlatformException catch (e) {
+      // Если запрос не найден, возвращаем null вместо ошибки
+      if (e.code == 'NOT_FOUND') {
+        return null;
+      }
+      rethrow;
     }
-    return result;
   }
 
   @override

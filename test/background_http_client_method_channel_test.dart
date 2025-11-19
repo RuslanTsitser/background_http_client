@@ -55,6 +55,26 @@ void main() {
     expect(status, 0);
   });
 
+  test('getRequestStatus returns null when request not found', () async {
+    TestDefaultBinaryMessengerBinding
+        .instance.defaultBinaryMessenger.setMockMethodCallHandler(
+      channel,
+      (MethodCall methodCall) async {
+        if (methodCall.method == 'getRequestStatus') {
+          // Симулируем PlatformException с кодом NOT_FOUND
+          throw PlatformException(
+            code: 'NOT_FOUND',
+            message: 'Request not found',
+          );
+        }
+        return null;
+      },
+    );
+
+    final status = await platform.getRequestStatus('non-existent-id');
+    expect(status, isNull);
+  });
+
   test('getResponse', () async {
     final response = await platform.getResponse('test-id');
     expect(response, isNotNull);
