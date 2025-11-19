@@ -317,29 +317,27 @@ class HttpRequestWorker(
                 connection.errorStream
             }
 
-            // Для больших файлов используем потоковое скачивание
+            // Всегда сохраняем ответ в файл как байты (без форматирования)
             val contentLength = connection.contentLength.toLong()
-            val isLargeFile = contentLength > 0 && contentLength > 100 * 1024 // > 100KB
-            
-            val responseBody: String?
-            val responseFilePath: String?
-            
-            if (isLargeFile && inputStream != null) {
-                // Потоковое скачивание для больших файлов
-                responseFilePath = streamResponseToFile(applicationContext, requestId, inputStream, contentLength)
-                responseBody = null // Для больших файлов не сохраняем в body
+            val responseFilePath: String? = if (inputStream != null) {
+                // Записываем байты напрямую в файл
+                streamResponseToFile(applicationContext, requestId, inputStream, contentLength)
             } else {
-                // Для маленьких ответов читаем в память
-                responseBody = inputStream?.bufferedReader(Charsets.UTF_8)?.use {
-                    it.readText()
-                }
-                
-                // Всегда сохраняем ответ в файл
-                responseFilePath = if (responseBody != null) {
-                    saveResponseToFile(applicationContext, requestId, responseBody)
-                } else {
+                null
+            }
+            
+            // Для маленьких ответов (<10KB) также сохраняем в body для удобства (опционально)
+            val responseBody: String? = if (responseFilePath != null && contentLength > 0 && contentLength <= 10000) {
+                try {
+                    // Читаем файл как UTF-8 для body (только для текстовых ответов)
+                    // Если это не UTF-8, body будет null
+                    java.io.File(responseFilePath).readText(Charsets.UTF_8)
+                } catch (e: Exception) {
+                    // Если не удалось прочитать как UTF-8 (бинарные данные), оставляем null
                     null
                 }
+            } else {
+                null
             }
 
             HttpResponse(
@@ -347,7 +345,7 @@ class HttpRequestWorker(
                 statusCode = responseCode,
                 headers = responseHeaders,
                 // Для маленьких ответов (<10KB) также сохраняем в body для удобства
-                body = if (responseBody != null && responseBody.length <= 10000) responseBody else null,
+                body = responseBody,
                 responseFilePath = responseFilePath,
                 status = if (responseCode >= 200 && responseCode < 300) {
                     RequestStatus.COMPLETED
@@ -443,7 +441,8 @@ class HttpRequestWorker(
     }
 
     /**
-     * Потоковое сохранение большого ответа в файл
+     * Сохраняет ответ в файл как байты (без форматирования)
+     * Записывает данные напрямую из InputStream в файл
      */
     private fun streamResponseToFile(
         context: Context,
@@ -459,7 +458,7 @@ class HttpRequestWorker(
 
         val responseFile = java.io.File(responsesDir, "${requestId}_response.txt")
         
-        // Потоковое копирование данных
+        // Потоковое копирование данных (байты записываются напрямую, без форматирования)
         val bufferSize = 8192 // 8KB буфер
         val buffer = ByteArray(bufferSize)
         
@@ -480,33 +479,11 @@ class HttpRequestWorker(
             output.flush()
         }
 
-        Log.d(TAG, "Large response streamed to file: ${responseFile.absolutePath} (${responseFile.length()} bytes)")
+        Log.d(TAG, "Response saved to file: ${responseFile.absolutePath} (${responseFile.length()} bytes)")
 
         return responseFile.absolutePath
     }
 
-    /**
-     * Сохраняет ответ в файл (для маленьких ответов)
-     */
-    private fun saveResponseToFile(
-        context: Context,
-        requestId: String,
-        content: String
-    ): String {
-        val storageDir = FileManager.getStorageDir(context)
-        val responsesDir = java.io.File(storageDir, "background_http_responses")
-        if (!responsesDir.exists()) {
-            responsesDir.mkdirs()
-        }
-
-        // Сохраняем тело ответа в отдельный файл
-        val responseFile = java.io.File(responsesDir, "${requestId}_response.txt")
-        responseFile.writeText(content, Charsets.UTF_8)
-
-        Log.d(TAG, "Response body saved to file: ${responseFile.absolutePath}")
-
-        return responseFile.absolutePath
-    }
 }
 
 
