@@ -77,6 +77,13 @@ class BackgroundHttpClientPlugin :
             // Сохраняем запрос в файл
             val requestInfo = FileManager.saveRequest(context, request)
 
+            // Если задача с таким ID уже существует, отменяем старые задачи
+            // Это позволяет переиспользовать один и тот же requestId
+            val workManager = WorkManager.getInstance(context)
+            workManager.cancelAllWorkByTag("request_${requestInfo.requestId}")
+            workManager.cancelAllWorkByTag("request_${requestInfo.requestId}_retry")
+            workManager.cancelAllWorkByTag("request_${requestInfo.requestId}_network_wait")
+
             // Запускаем фоновую задачу через WorkManager
             // WorkManager автоматически выполняет задачи в фоне, даже после закрытия приложения
             val workRequest = OneTimeWorkRequestBuilder<HttpRequestWorker>()
@@ -94,7 +101,7 @@ class BackgroundHttpClientPlugin :
                 .addTag("request_${requestInfo.requestId}")
                 .build()
 
-            WorkManager.getInstance(context).enqueue(workRequest)
+            workManager.enqueue(workRequest)
 
             // Возвращаем информацию о запросе
             result.success(
@@ -211,8 +218,15 @@ class BackgroundHttpClientPlugin :
                     return
                 }
 
-            // Отменяем WorkManager задачу
-            WorkManager.getInstance(context).cancelAllWorkByTag(requestId)
+            val workManager = WorkManager.getInstance(context)
+            
+            // Отменяем все WorkManager задачи для данного запроса:
+            // 1. Основную задачу
+            // 2. Задачи повторов
+            // 3. Задачи ожидания сети
+            workManager.cancelAllWorkByTag("request_$requestId")
+            workManager.cancelAllWorkByTag("request_${requestId}_retry")
+            workManager.cancelAllWorkByTag("request_${requestId}_network_wait")
 
             // Обновляем статус на FAILED
             FileManager.saveStatus(

@@ -4,6 +4,8 @@ import Foundation
 
 public class BackgroundHttpClientPlugin: NSObject, FlutterPlugin, URLSessionDelegate {
     private var activeTasks: [String: URLSessionDataTask] = [:]
+    // Множество отмененных запросов (для предотвращения выполнения запланированных повторных попыток)
+    private var cancelledRequestIds = Set<String>()
     // Используем обычный URLSession для HTTP запросов
     // Background URLSession предназначен для downloadTask/uploadTask, а не для dataTask
     // Обычный URLSession работает в фоне, когда приложение свернуто
@@ -58,6 +60,14 @@ public class BackgroundHttpClientPlugin: NSObject, FlutterPlugin, URLSessionDele
         let multipartFields = args["multipartFields"] as? [String: String]
         let multipartFiles = args["multipartFiles"] as? [String: [String: Any]]
         let retries = (args["retries"] as? Int) ?? 0
+        
+        // Если задача с таким ID уже существует, отменяем старую задачу
+        // и очищаем из множества отмененных (чтобы новая задача могла выполниться)
+        if let existingTask = activeTasks[requestId] {
+            existingTask.cancel()
+            activeTasks.removeValue(forKey: requestId)
+        }
+        cancelledRequestIds.remove(requestId)
         
         // Сохраняем запрос в файл
         let requestInfo = saveRequest(
@@ -131,7 +141,10 @@ public class BackgroundHttpClientPlugin: NSObject, FlutterPlugin, URLSessionDele
             return
         }
         
-        // Отменяем задачу
+        // Помечаем запрос как отмененный (для предотвращения выполнения запланированных повторных попыток)
+        cancelledRequestIds.insert(requestId)
+        
+        // Отменяем активную задачу
         if let task = activeTasks[requestId] {
             task.cancel()
             activeTasks.removeValue(forKey: requestId)
@@ -188,6 +201,12 @@ public class BackgroundHttpClientPlugin: NSObject, FlutterPlugin, URLSessionDele
         retries: Int = 0,
         retriesRemaining: Int = 0
     ) {
+        // Проверяем, не отменен ли запрос
+        if cancelledRequestIds.contains(requestId) {
+            print("BackgroundHttpClient: Request \(requestId) was cancelled, skipping execution")
+            return
+        }
+        
         var requestURL = url
         
         // Добавляем query параметры
@@ -348,6 +367,11 @@ public class BackgroundHttpClientPlugin: NSObject, FlutterPlugin, URLSessionDele
                         // Это позволяет автоматически повторить при появлении сети
                         DispatchQueue.global().asyncAfter(deadline: .now() + .seconds(30)) { [weak self] in
                             guard let self = self else { return }
+                            // Проверяем, не отменен ли запрос перед повторной попыткой
+                            if self.cancelledRequestIds.contains(requestId) {
+                                print("BackgroundHttpClient: Request \(requestId) was cancelled, skipping network retry")
+                                return
+                            }
                             self.executeHttpRequest(
                                 requestId: requestId,
                                 url: url,
@@ -381,6 +405,11 @@ public class BackgroundHttpClientPlugin: NSObject, FlutterPlugin, URLSessionDele
                     // Для гарантированной работы при закрытом приложении нужно использовать BackgroundTasks framework.
                     DispatchQueue.global().asyncAfter(deadline: .now() + .seconds(waitSeconds)) { [weak self] in
                         guard let self = self else { return }
+                        // Проверяем, не отменен ли запрос перед повторной попыткой
+                        if self.cancelledRequestIds.contains(requestId) {
+                            print("BackgroundHttpClient: Request \(requestId) was cancelled, skipping retry")
+                            return
+                        }
                         self.executeHttpRequest(
                             requestId: requestId,
                             url: url,
@@ -400,6 +429,8 @@ public class BackgroundHttpClientPlugin: NSObject, FlutterPlugin, URLSessionDele
                 
                 // Если попытки закончились, сохраняем ошибку
                 self.saveStatus(requestId: requestId, status: 2, error: detailedError) // 2 = FAILED
+                // Очищаем из множества отмененных запросов после окончательной неудачи
+                self.cancelledRequestIds.remove(requestId)
                 return
             }
             
@@ -463,6 +494,11 @@ public class BackgroundHttpClientPlugin: NSObject, FlutterPlugin, URLSessionDele
                 // Для гарантированной работы при закрытом приложении нужно использовать BackgroundTasks framework.
                 DispatchQueue.global().asyncAfter(deadline: .now() + .seconds(waitSeconds)) { [weak self] in
                     guard let self = self else { return }
+                    // Проверяем, не отменен ли запрос перед повторной попыткой
+                    if self.cancelledRequestIds.contains(requestId) {
+                        print("BackgroundHttpClient: Request \(requestId) was cancelled, skipping retry")
+                        return
+                    }
                     self.executeHttpRequest(
                         requestId: requestId,
                         url: url,
@@ -493,6 +529,9 @@ public class BackgroundHttpClientPlugin: NSObject, FlutterPlugin, URLSessionDele
             
             // Обновляем статус
             self.saveStatus(requestId: requestId, status: status)
+            
+            // Очищаем из множества отмененных запросов после завершения (успешного или неудачного)
+            self.cancelledRequestIds.remove(requestId)
         }
         
         activeTasks[requestId] = task
