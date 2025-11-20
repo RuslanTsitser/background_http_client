@@ -24,6 +24,8 @@ class BackgroundHttpClient {
   /// [timeout] - таймаут в секундах
   /// [requestId] - кастомный ID запроса (опционально). Если не указан, будет сгенерирован автоматически
   /// [retries] - количество повторных попыток при ошибках (0-10, по умолчанию 0)
+  /// [stuckTimeoutBuffer] - запас времени в секундах для определения зависших запросов в процессе выполнения (по умолчанию 60)
+  /// [queueTimeout] - максимальное время ожидания в очереди в секундах (по умолчанию 600 = 10 минут)
   ///
   /// Возвращает [RequestInfo] с ID запроса и путем к файлу запроса
   Future<RequestInfo> get(
@@ -33,6 +35,8 @@ class BackgroundHttpClient {
     int? timeout,
     String? requestId,
     int? retries,
+    int? stuckTimeoutBuffer,
+    int? queueTimeout,
   }) async {
     final request = HttpRequest(
       url: url,
@@ -42,6 +46,8 @@ class BackgroundHttpClient {
       timeout: timeout,
       requestId: requestId,
       retries: retries,
+      stuckTimeoutBuffer: stuckTimeoutBuffer,
+      queueTimeout: queueTimeout,
     );
     return await _executeRequest(request);
   }
@@ -55,6 +61,8 @@ class BackgroundHttpClient {
   /// [timeout] - таймаут в секундах
   /// [requestId] - кастомный ID запроса (опционально). Если не указан, будет сгенерирован автоматически
   /// [retries] - количество повторных попыток при ошибках (0-10, по умолчанию 0)
+  /// [stuckTimeoutBuffer] - запас времени в секундах для определения зависших запросов в процессе выполнения (по умолчанию 60)
+  /// [queueTimeout] - максимальное время ожидания в очереди в секундах (по умолчанию 600 = 10 минут)
   ///
   /// Возвращает [RequestInfo] с ID запроса и путем к файлу запроса
   Future<RequestInfo> post(
@@ -65,6 +73,8 @@ class BackgroundHttpClient {
     int? timeout,
     String? requestId,
     int? retries,
+    int? stuckTimeoutBuffer,
+    int? queueTimeout,
   }) async {
     String? body;
     if (data != null) {
@@ -89,6 +99,8 @@ class BackgroundHttpClient {
       timeout: timeout,
       requestId: requestId,
       retries: retries,
+      stuckTimeoutBuffer: stuckTimeoutBuffer,
+      queueTimeout: queueTimeout,
     );
     return await _executeRequest(request);
   }
@@ -102,6 +114,8 @@ class BackgroundHttpClient {
   /// [timeout] - таймаут в секундах
   /// [requestId] - кастомный ID запроса (опционально). Если не указан, будет сгенерирован автоматически
   /// [retries] - количество повторных попыток при ошибках (0-10, по умолчанию 0)
+  /// [stuckTimeoutBuffer] - запас времени в секундах для определения зависших запросов в процессе выполнения (по умолчанию 60)
+  /// [queueTimeout] - максимальное время ожидания в очереди в секундах (по умолчанию 600 = 10 минут)
   ///
   /// Возвращает [RequestInfo] с ID запроса и путем к файлу запроса
   Future<RequestInfo> put(
@@ -112,6 +126,8 @@ class BackgroundHttpClient {
     int? timeout,
     String? requestId,
     int? retries,
+    int? stuckTimeoutBuffer,
+    int? queueTimeout,
   }) async {
     String? body;
     if (data != null) {
@@ -135,6 +151,8 @@ class BackgroundHttpClient {
       timeout: timeout,
       requestId: requestId,
       retries: retries,
+      stuckTimeoutBuffer: stuckTimeoutBuffer,
+      queueTimeout: queueTimeout,
     );
     return await _executeRequest(request);
   }
@@ -147,6 +165,8 @@ class BackgroundHttpClient {
   /// [timeout] - таймаут в секундах
   /// [requestId] - кастомный ID запроса (опционально). Если не указан, будет сгенерирован автоматически
   /// [retries] - количество повторных попыток при ошибках (0-10, по умолчанию 0)
+  /// [stuckTimeoutBuffer] - запас времени в секундах для определения зависших запросов в процессе выполнения (по умолчанию 60)
+  /// [queueTimeout] - максимальное время ожидания в очереди в секундах (по умолчанию 600 = 10 минут)
   ///
   /// Возвращает [RequestInfo] с ID запроса и путем к файлу запроса
   Future<RequestInfo> delete(
@@ -156,6 +176,8 @@ class BackgroundHttpClient {
     int? timeout,
     String? requestId,
     int? retries,
+    int? stuckTimeoutBuffer,
+    int? queueTimeout,
   }) async {
     final request = HttpRequest(
       url: url,
@@ -165,6 +187,8 @@ class BackgroundHttpClient {
       timeout: timeout,
       requestId: requestId,
       retries: retries,
+      stuckTimeoutBuffer: stuckTimeoutBuffer,
+      queueTimeout: queueTimeout,
     );
     return await _executeRequest(request);
   }
@@ -178,6 +202,8 @@ class BackgroundHttpClient {
   /// [timeout] - таймаут в секундах
   /// [requestId] - кастомный ID запроса (опционально). Если не указан, будет сгенерирован автоматически
   /// [retries] - количество повторных попыток при ошибках (0-10, по умолчанию 0)
+  /// [stuckTimeoutBuffer] - запас времени в секундах для определения зависших запросов в процессе выполнения (по умолчанию 60)
+  /// [queueTimeout] - максимальное время ожидания в очереди в секундах (по умолчанию 600 = 10 минут)
   ///
   /// Возвращает [RequestInfo] с ID запроса и путем к файлу запроса
   Future<RequestInfo> patch(
@@ -188,6 +214,8 @@ class BackgroundHttpClient {
     int? timeout,
     String? requestId,
     int? retries,
+    int? stuckTimeoutBuffer,
+    int? queueTimeout,
   }) async {
     String? body;
     if (data != null) {
@@ -211,6 +239,8 @@ class BackgroundHttpClient {
       timeout: timeout,
       requestId: requestId,
       retries: retries,
+      stuckTimeoutBuffer: stuckTimeoutBuffer,
+      queueTimeout: queueTimeout,
     );
     return await _executeRequest(request);
   }
@@ -223,6 +253,8 @@ class BackgroundHttpClient {
   /// [timeout] - таймаут в секундах
   /// [requestId] - кастомный ID запроса (опционально). Если не указан, будет сгенерирован автоматически
   /// [retries] - количество повторных попыток при ошибках (0-10, по умолчанию 0)
+  /// [stuckTimeoutBuffer] - запас времени в секундах для определения зависших запросов в процессе выполнения (по умолчанию 60)
+  /// [queueTimeout] - максимальное время ожидания в очереди в секундах (по умолчанию 600 = 10 минут)
   ///
   /// Возвращает [RequestInfo] с ID запроса и путем к файлу запроса
   Future<RequestInfo> head(
@@ -232,6 +264,8 @@ class BackgroundHttpClient {
     int? timeout,
     String? requestId,
     int? retries,
+    int? stuckTimeoutBuffer,
+    int? queueTimeout,
   }) async {
     final request = HttpRequest(
       url: url,
@@ -241,6 +275,8 @@ class BackgroundHttpClient {
       timeout: timeout,
       requestId: requestId,
       retries: retries,
+      stuckTimeoutBuffer: stuckTimeoutBuffer,
+      queueTimeout: queueTimeout,
     );
     return await _executeRequest(request);
   }
@@ -255,6 +291,8 @@ class BackgroundHttpClient {
   /// [timeout] - таймаут в секундах
   /// [requestId] - кастомный ID запроса (опционально). Если не указан, будет сгенерирован автоматически
   /// [retries] - количество повторных попыток при ошибках (0-10, по умолчанию 0)
+  /// [stuckTimeoutBuffer] - запас времени в секундах для определения зависших запросов в процессе выполнения (по умолчанию 60)
+  /// [queueTimeout] - максимальное время ожидания в очереди в секундах (по умолчанию 600 = 10 минут)
   ///
   /// Возвращает [RequestInfo] с ID запроса и путем к файлу запроса
   Future<RequestInfo> postMultipart(
@@ -266,6 +304,8 @@ class BackgroundHttpClient {
     int? timeout,
     String? requestId,
     int? retries,
+    int? stuckTimeoutBuffer,
+    int? queueTimeout,
   }) async {
     final request = HttpRequest(
       url: url,
@@ -277,6 +317,8 @@ class BackgroundHttpClient {
       timeout: timeout,
       requestId: requestId,
       retries: retries,
+      stuckTimeoutBuffer: stuckTimeoutBuffer,
+      queueTimeout: queueTimeout,
     );
     return await _executeRequest(request);
   }

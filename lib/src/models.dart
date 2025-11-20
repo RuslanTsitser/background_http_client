@@ -77,6 +77,14 @@ class HttpRequest {
   /// Используется экспоненциальная задержка между попытками
   final int? retries;
 
+  /// Запас времени в секундах для определения зависших запросов в процессе выполнения
+  /// По умолчанию 60 секунд. Запрос считается зависшим, если прошло больше (timeout + stuckTimeoutBuffer)
+  final int? stuckTimeoutBuffer;
+
+  /// Максимальное время ожидания в очереди в секундах
+  /// По умолчанию 600 секунд (10 минут). Запрос считается зависшим в очереди, если прошло больше этого времени
+  final int? queueTimeout;
+
   HttpRequest({
     required this.url,
     required this.method,
@@ -88,6 +96,8 @@ class HttpRequest {
     this.multipartFiles,
     this.requestId,
     this.retries,
+    this.stuckTimeoutBuffer,
+    this.queueTimeout,
   });
 
   /// Создает объект из JSON
@@ -122,6 +132,8 @@ class HttpRequest {
       multipartFiles: multipartFiles,
       requestId: json['requestId'] as String?,
       retries: json['retries'] as int?,
+      stuckTimeoutBuffer: json['stuckTimeoutBuffer'] as int?,
+      queueTimeout: json['queueTimeout'] as int?,
     );
   }
 
@@ -146,6 +158,8 @@ class HttpRequest {
       if (multipartFilesJson != null) 'multipartFiles': multipartFilesJson,
       if (requestId != null) 'requestId': requestId,
       if (retries != null) 'retries': retries,
+      if (stuckTimeoutBuffer != null) 'stuckTimeoutBuffer': stuckTimeoutBuffer,
+      if (queueTimeout != null) 'queueTimeout': queueTimeout,
     };
   }
 }

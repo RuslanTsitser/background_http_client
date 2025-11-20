@@ -141,13 +141,98 @@ class BackgroundHttpClientPlugin :
                     return
                 }
 
-            val statusInfo = FileManager.loadStatus(context, requestId)
+            var statusInfo = FileManager.loadStatus(context, requestId)
+            
+            // Если статус не установлен, но файл запроса существует, значит запрос в очереди
+            // Проверяем, не завис ли он слишком долго
             if (statusInfo == null) {
-                result.success(null)
-                return
+                val requestFile = FileManager.getRequestFile(context, requestId)
+                if (requestFile != null && requestFile.exists()) {
+                    val createdTime = requestFile.lastModified()
+                    val request = FileManager.loadRequest(context, requestId)
+                    val queueTimeoutMs = ((request?.queueTimeout ?: 600) * 1000).toLong() // По умолчанию 10 минут
+                    val queueElapsed = System.currentTimeMillis() - createdTime
+                    
+                    if (queueElapsed > queueTimeoutMs) {
+                        // Запрос завис в очереди - создаем статус FAILED
+                        Log.w(TAG, "Request $requestId stuck in queue (elapsed: ${queueElapsed}ms, timeout: ${queueTimeoutMs}ms)")
+                        FileManager.saveStatus(
+                            context,
+                            RequestStatusInfo(
+                                requestId,
+                                RequestStatus.FAILED,
+                                error = "Request stuck in queue: never started executing after ${queueElapsed}ms"
+                            )
+                        )
+                        statusInfo = FileManager.loadStatus(context, requestId)
+                    } else {
+                        // Запрос еще в очереди, но не слишком долго - возвращаем null
+                        result.success(null)
+                        return
+                    }
+                } else {
+                    // Файл запроса не существует - возвращаем null
+                    result.success(null)
+                    return
+                }
             }
 
-            result.success(statusInfo.status.ordinal)
+            // В этом месте statusInfo гарантированно не null
+            val finalStatusInfo = statusInfo!!
+
+            // Проверяем, не завис ли запрос
+            var finalStatus = finalStatusInfo.status
+            
+            // Проверка 1: Запрос в процессе выполнения, но превышен таймаут
+            if (finalStatusInfo.status == RequestStatus.IN_PROGRESS && finalStatusInfo.startTime != null) {
+                val request = FileManager.loadRequest(context, requestId)
+                val timeout = (request?.timeout ?: 120) * 1000L // Таймаут в миллисекундах
+                val stuckTimeoutBuffer = (request?.stuckTimeoutBuffer ?: 60) * 1000L // Запас времени в миллисекундах (по умолчанию 60 сек)
+                val stuckTimeout = timeout + stuckTimeoutBuffer
+                val elapsed = System.currentTimeMillis() - finalStatusInfo.startTime!!
+                
+                if (elapsed > stuckTimeout) {
+                    // Запрос завис - автоматически меняем статус на FAILED
+                    Log.w(TAG, "Request $requestId is stuck (elapsed: ${elapsed}ms, timeout: ${stuckTimeout}ms)")
+                    FileManager.saveStatus(
+                        context,
+                        RequestStatusInfo(
+                            requestId,
+                            RequestStatus.FAILED,
+                            error = "Request stuck: exceeded timeout of ${timeout}ms"
+                        )
+                    )
+                    finalStatus = RequestStatus.FAILED
+                }
+            }
+            
+            // Проверка 2: Запрос был создан, но так и не начал выполняться (нет startTime)
+            // Это означает, что запрос завис в очереди
+            if (finalStatusInfo.startTime == null) {
+                val requestFile = FileManager.getRequestFile(context, requestId)
+                if (requestFile != null && requestFile.exists()) {
+                    val request = FileManager.loadRequest(context, requestId)
+                    val createdTime = requestFile.lastModified()
+                    val queueTimeoutMs = ((request?.queueTimeout ?: 600) * 1000).toLong() // По умолчанию 10 минут
+                    val queueElapsed = System.currentTimeMillis() - createdTime
+                    
+                    if (queueElapsed > queueTimeoutMs) {
+                        // Запрос завис в очереди - автоматически меняем статус на FAILED
+                        Log.w(TAG, "Request $requestId stuck in queue (elapsed: ${queueElapsed}ms, timeout: ${queueTimeoutMs}ms)")
+                        FileManager.saveStatus(
+                            context,
+                            RequestStatusInfo(
+                                requestId,
+                                RequestStatus.FAILED,
+                                error = "Request stuck in queue: never started executing after ${queueElapsed}ms"
+                            )
+                        )
+                        finalStatus = RequestStatus.FAILED
+                    }
+                }
+            }
+
+            result.success(finalStatus.ordinal)
         } catch (e: Exception) {
             Log.e(TAG, "Error getting request status", e)
             result.error("STATUS_ERROR", e.message, null)
@@ -348,7 +433,9 @@ class BackgroundHttpClientPlugin :
             multipartFields = multipartFieldsMap,
             multipartFiles = multipartFilesMap,
             requestId = requestMap["requestId"] as? String,
-            retries = (requestMap["retries"] as? Number)?.toInt()
+            retries = (requestMap["retries"] as? Number)?.toInt(),
+            stuckTimeoutBuffer = (requestMap["stuckTimeoutBuffer"] as? Number)?.toInt(),
+            queueTimeout = (requestMap["queueTimeout"] as? Number)?.toInt()
         )
     }
 

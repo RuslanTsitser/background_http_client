@@ -49,10 +49,14 @@ class HttpRequestWorker(
             val request = FileManager.loadRequest(applicationContext, requestId)
                 ?: return@withContext Result.failure()
 
-            // Обновляем статус на "в процессе"
+            // Обновляем статус на "в процессе" с сохранением времени начала
             FileManager.saveStatus(
                 applicationContext,
-                RequestStatusInfo(requestId, RequestStatus.IN_PROGRESS)
+                RequestStatusInfo(
+                    requestId, 
+                    RequestStatus.IN_PROGRESS,
+                    startTime = System.currentTimeMillis()
+                )
             )
 
             // Выполняем HTTP запрос (одна попытка)
@@ -71,12 +75,15 @@ class HttpRequestWorker(
                 Log.d(TAG, "Request $requestId failed, scheduling retry in $waitSeconds seconds. ${currentRetriesRemaining - 1} retries remaining")
                 
                 // Обновляем статус на "ожидание повтора"
+                // Сохраняем оригинальное время начала запроса для правильной проверки зависших запросов
+                val currentStatus = FileManager.loadStatus(applicationContext, requestId)
                 FileManager.saveStatus(
                     applicationContext,
                     RequestStatusInfo(
                         requestId,
                         RequestStatus.IN_PROGRESS,
-                        "Retrying in $waitSeconds seconds... (${currentRetriesRemaining - 1} retries remaining)"
+                        "Retrying in $waitSeconds seconds... (${currentRetriesRemaining - 1} retries remaining)",
+                        startTime = currentStatus?.startTime ?: System.currentTimeMillis()
                     )
                 )
                 
@@ -139,12 +146,15 @@ class HttpRequestWorker(
                     // WorkManager автоматически выполнит задачу при появлении сети
                     Log.d(TAG, "Network error detected for request $requestId, scheduling retry when network is available")
                     
+                    // Сохраняем оригинальное время начала запроса
+                    val currentStatus = FileManager.loadStatus(applicationContext, requestId)
                     FileManager.saveStatus(
                         applicationContext,
                         RequestStatusInfo(
                             requestId,
                             RequestStatus.IN_PROGRESS,
-                            "Waiting for network connection... (${e.message ?: "Network unavailable"})"
+                            "Waiting for network connection... (${e.message ?: "Network unavailable"})",
+                            startTime = currentStatus?.startTime ?: System.currentTimeMillis()
                         )
                     )
                     
@@ -181,12 +191,15 @@ class HttpRequestWorker(
                         
                         Log.d(TAG, "Request $requestId error: ${e.message}, scheduling retry in $waitSeconds seconds. ${currentRetriesRemaining - 1} retries remaining")
                         
+                        // Сохраняем оригинальное время начала запроса
+                        val currentStatus = FileManager.loadStatus(applicationContext, requestId)
                         FileManager.saveStatus(
                             applicationContext,
                             RequestStatusInfo(
                                 requestId,
                                 RequestStatus.IN_PROGRESS,
-                                "Retrying in $waitSeconds seconds... (${currentRetriesRemaining - 1} retries remaining)"
+                                "Retrying in $waitSeconds seconds... (${currentRetriesRemaining - 1} retries remaining)",
+                                startTime = currentStatus?.startTime ?: System.currentTimeMillis()
                             )
                         )
                         

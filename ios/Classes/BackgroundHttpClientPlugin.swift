@@ -62,6 +62,8 @@ public class BackgroundHttpClientPlugin: NSObject, FlutterPlugin, URLSessionDele
         let multipartFields = args["multipartFields"] as? [String: String]
         let multipartFiles = args["multipartFiles"] as? [String: [String: Any]]
         let retries = (args["retries"] as? Int) ?? 0
+        let stuckTimeoutBuffer = args["stuckTimeoutBuffer"] as? Int
+        let queueTimeout = args["queueTimeout"] as? Int
         
         // Если задача с таким ID уже существует, отменяем старую задачу
         // и очищаем из множества отмененных (чтобы новая задача могла выполниться)
@@ -81,11 +83,14 @@ public class BackgroundHttpClientPlugin: NSObject, FlutterPlugin, URLSessionDele
             queryParameters: queryParameters,
             timeout: timeout,
             multipartFields: multipartFields,
-            multipartFiles: multipartFiles
+            multipartFiles: multipartFiles,
+            retries: retries,
+            stuckTimeoutBuffer: stuckTimeoutBuffer,
+            queueTimeout: queueTimeout
         )
         
-        // Обновляем статус на "в процессе"
-        saveStatus(requestId: requestId, status: 0) // 0 = IN_PROGRESS
+        // НЕ устанавливаем статус IN_PROGRESS здесь - это будет сделано при реальном начале выполнения запроса
+        // Это важно, чтобы время начала считалось с момента реального выполнения, а не с момента постановки в очередь
         
         // Выполняем запрос в фоне с поддержкой повторных попыток
         executeHttpRequestWithRetries(
@@ -115,11 +120,119 @@ public class BackgroundHttpClientPlugin: NSObject, FlutterPlugin, URLSessionDele
             return
         }
         
-        if let status = loadStatus(requestId: requestId) {
-            result(status)
+        // Получаем путь к файлу запроса
+        let storageDir = getStorageDirectory()
+        let requestsDir = storageDir.appendingPathComponent("requests", isDirectory: true)
+        let requestFile = requestsDir.appendingPathComponent("\(requestId).json")
+        
+        var statusData = loadStatusData(requestId: requestId)
+        var status: Int
+        
+        // Если статус не установлен, но файл запроса существует, значит запрос в очереди
+        if statusData == nil {
+            let fileManager = FileManager.default
+            if fileManager.fileExists(atPath: requestFile.path) {
+                if let attributes = try? fileManager.attributesOfItem(atPath: requestFile.path),
+                   let createdTime = attributes[.modificationDate] as? Date {
+                    var queueTimeout: TimeInterval = 10 * 60 * 1000 // По умолчанию 10 минут в миллисекундах
+                    
+                    // Загружаем настройки из запроса
+                    if let data = try? Data(contentsOf: requestFile),
+                       let requestJson = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                       let queueTimeoutSeconds = requestJson["queueTimeout"] as? Int {
+                        queueTimeout = Double(queueTimeoutSeconds) * 1000
+                    }
+                    
+                    let now = Date().timeIntervalSince1970 * 1000
+                    let createdTimeMs = createdTime.timeIntervalSince1970 * 1000
+                    let queueElapsed = now - createdTimeMs
+                    
+                    if queueElapsed > queueTimeout {
+                        // Запрос завис в очереди - создаем статус FAILED
+                        print("BackgroundHttpClient: Request \(requestId) stuck in queue (elapsed: \(queueElapsed)ms, timeout: \(queueTimeout)ms)")
+                        saveStatus(requestId: requestId, status: 2, error: "Request stuck in queue: never started executing after \(Int(queueElapsed))ms")
+                        statusData = loadStatusData(requestId: requestId)
+                        status = statusData?["status"] as? Int ?? 2
         } else {
+                        // Запрос еще в очереди, но не слишком долго - возвращаем nil
             result(nil)
+                        return
+                    }
+                } else {
+                    // Не можем получить время создания - возвращаем nil
+                    result(nil)
+                    return
+                }
+            } else {
+                // Файл запроса не существует - возвращаем nil
+                result(nil)
+                return
+            }
+        } else {
+            status = statusData!["status"] as? Int ?? 0
         }
+        
+        // Проверяем, не завис ли запрос
+        // Проверка 1: Запрос в процессе выполнения, но превышен таймаут
+        if status == 0, let statusData = statusData { // 0 = IN_PROGRESS
+            if let startTime = statusData["startTime"] as? TimeInterval {
+                var timeout: Double = 120 * 1000 // Таймаут по умолчанию в миллисекундах
+                var stuckTimeoutBuffer: Double = 60 * 1000 // Запас времени по умолчанию (60 секунд)
+                
+                if let data = try? Data(contentsOf: requestFile),
+                   let requestJson = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                    if let requestTimeout = requestJson["timeout"] as? Int {
+                        timeout = Double(requestTimeout) * 1000
+                    }
+                    if let buffer = requestJson["stuckTimeoutBuffer"] as? Int {
+                        stuckTimeoutBuffer = Double(buffer) * 1000
+                    }
+                }
+                
+                let stuckTimeout = timeout + stuckTimeoutBuffer
+                let now = Date().timeIntervalSince1970 * 1000
+                let elapsed = now - startTime
+                
+                if elapsed > stuckTimeout {
+                    // Запрос завис - автоматически меняем статус на FAILED
+                    print("BackgroundHttpClient: Request \(requestId) is stuck (elapsed: \(elapsed)ms, timeout: \(stuckTimeout)ms)")
+                    saveStatus(requestId: requestId, status: 2, error: "Request stuck: exceeded timeout of \(timeout)ms", startTime: startTime)
+                    status = 2 // 2 = FAILED
+                }
+            }
+        }
+        
+        // Проверка 2: Запрос был создан, но так и не начал выполняться (нет startTime)
+        // Это означает, что запрос завис в очереди
+        if let statusData = statusData, statusData["startTime"] == nil {
+            let fileManager = FileManager.default
+            if fileManager.fileExists(atPath: requestFile.path) {
+                if let attributes = try? fileManager.attributesOfItem(atPath: requestFile.path),
+                   let createdTime = attributes[.modificationDate] as? Date {
+                    var queueTimeout: TimeInterval = 10 * 60 * 1000 // По умолчанию 10 минут в миллисекундах
+                    
+                    // Загружаем настройки из запроса
+                    if let data = try? Data(contentsOf: requestFile),
+                       let requestJson = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                       let queueTimeoutSeconds = requestJson["queueTimeout"] as? Int {
+                        queueTimeout = Double(queueTimeoutSeconds) * 1000
+                    }
+                    
+                    let now = Date().timeIntervalSince1970 * 1000
+                    let createdTimeMs = createdTime.timeIntervalSince1970 * 1000
+                    let queueElapsed = now - createdTimeMs
+                    
+                    if queueElapsed > queueTimeout {
+                        // Запрос завис в очереди - автоматически меняем статус на FAILED
+                        print("BackgroundHttpClient: Request \(requestId) stuck in queue (elapsed: \(queueElapsed)ms, timeout: \(queueTimeout)ms)")
+                        saveStatus(requestId: requestId, status: 2, error: "Request stuck in queue: never started executing after \(Int(queueElapsed))ms")
+                        status = 2 // 2 = FAILED
+                    }
+                }
+            }
+        }
+        
+        result(status)
     }
     
     private func handleGetResponse(call: FlutterMethodCall, result: @escaping FlutterResult) {
@@ -229,6 +342,15 @@ public class BackgroundHttpClientPlugin: NSObject, FlutterPlugin, URLSessionDele
         if cancelledRequestIds.contains(requestId) {
             print("BackgroundHttpClient: Request \(requestId) was cancelled, skipping execution")
             return
+        }
+        
+        // Устанавливаем статус IN_PROGRESS с сохранением времени начала ТОЛЬКО при реальном начале выполнения
+        // Это важно для правильного определения зависших запросов
+        // Сохраняем время начала только если статус еще не установлен (первая попытка)
+        let currentStatus = loadStatusData(requestId: requestId)
+        if currentStatus == nil || currentStatus?["status"] as? Int != 0 {
+            // Устанавливаем статус IN_PROGRESS с текущим временем начала
+            saveStatus(requestId: requestId, status: 0, startTime: Date().timeIntervalSince1970 * 1000)
         }
         
         var requestURL = url
@@ -385,7 +507,10 @@ public class BackgroundHttpClientPlugin: NSObject, FlutterPlugin, URLSessionDele
                     } else {
                         // Нет попыток, но это сетевая ошибка - обновляем статус на "ожидание сети"
                         print("BackgroundHttpClient: Network error for request \(requestId), waiting for network connection")
-                        self.saveStatus(requestId: requestId, status: 0, error: "Waiting for network connection... (\(detailedError))")
+                        // Сохраняем оригинальное время начала при повторных попытках
+                        let currentStatus = self.loadStatusData(requestId: requestId)
+                        let originalStartTime = currentStatus?["startTime"] as? TimeInterval
+                        self.saveStatus(requestId: requestId, status: 0, error: "Waiting for network connection... (\(detailedError))", startTime: originalStartTime)
                         
                         // Повторяем запрос через некоторое время (даже без retries)
                         // Это позволяет автоматически повторить при появлении сети
@@ -421,7 +546,10 @@ public class BackgroundHttpClientPlugin: NSObject, FlutterPlugin, URLSessionDele
                     
                     print("BackgroundHttpClient: Request \(requestId) failed: \(detailedError), retrying in \(waitSeconds) seconds. \(currentRetriesRemaining - 1) retries remaining")
                     
-                    self.saveStatus(requestId: requestId, status: 0, error: "Retrying in \(waitSeconds) seconds... (\(currentRetriesRemaining - 1) retries remaining)")
+                    // Сохраняем оригинальное время начала при повторных попытках
+                    let currentStatus = self.loadStatusData(requestId: requestId)
+                    let originalStartTime = currentStatus?["startTime"] as? TimeInterval
+                    self.saveStatus(requestId: requestId, status: 0, error: "Retrying in \(waitSeconds) seconds... (\(currentRetriesRemaining - 1) retries remaining)", startTime: originalStartTime)
                     
                     // Повторяем попытку после задержки
                     // Примечание: DispatchQueue.asyncAfter работает когда приложение в фоне (свернуто),
@@ -511,7 +639,10 @@ public class BackgroundHttpClientPlugin: NSObject, FlutterPlugin, URLSessionDele
                 
                 print("BackgroundHttpClient: Request \(requestId) failed with status code \(httpResponse.statusCode), retrying in \(waitSeconds) seconds. \(currentRetriesRemaining - 1) retries remaining")
                 
-                self.saveStatus(requestId: requestId, status: 0, error: "Retrying in \(waitSeconds) seconds... (\(currentRetriesRemaining - 1) retries remaining)")
+                // Сохраняем оригинальное время начала при повторных попытках
+                let currentStatus = self.loadStatusData(requestId: requestId)
+                let originalStartTime = currentStatus?["startTime"] as? TimeInterval
+                self.saveStatus(requestId: requestId, status: 0, error: "Retrying in \(waitSeconds) seconds... (\(currentRetriesRemaining - 1) retries remaining)", startTime: originalStartTime)
                 
                 // Повторяем попытку после задержки
                 // Примечание: DispatchQueue.asyncAfter работает когда приложение в фоне (свернуто),
@@ -586,7 +717,10 @@ public class BackgroundHttpClientPlugin: NSObject, FlutterPlugin, URLSessionDele
         queryParameters: [String: Any]?,
         timeout: Int,
         multipartFields: [String: String]? = nil,
-        multipartFiles: [String: [String: Any]]? = nil
+        multipartFiles: [String: [String: Any]]? = nil,
+        retries: Int? = nil,
+        stuckTimeoutBuffer: Int? = nil,
+        queueTimeout: Int? = nil
     ) -> (requestId: String, requestFilePath: String) {
         let storageDir = getStorageDirectory()
         let requestsDir = storageDir.appendingPathComponent("requests", isDirectory: true)
@@ -609,7 +743,7 @@ public class BackgroundHttpClientPlugin: NSObject, FlutterPlugin, URLSessionDele
         }
         
         let requestFile = requestsDir.appendingPathComponent("\(requestId).json")
-        let requestData: [String: Any] = [
+        var requestData: [String: Any] = [
             "url": url,
             "method": method,
             "headers": headers ?? [:],
@@ -619,6 +753,16 @@ public class BackgroundHttpClientPlugin: NSObject, FlutterPlugin, URLSessionDele
             "multipartFiles": multipartFiles ?? [:],
             "requestId": requestId
         ]
+        
+        if let retries = retries {
+            requestData["retries"] = retries
+        }
+        if let stuckTimeoutBuffer = stuckTimeoutBuffer {
+            requestData["stuckTimeoutBuffer"] = stuckTimeoutBuffer
+        }
+        if let queueTimeout = queueTimeout {
+            requestData["queueTimeout"] = queueTimeout
+        }
         
         if let jsonData = try? JSONSerialization.data(withJSONObject: requestData) {
             try? jsonData.write(to: requestFile)
@@ -713,22 +857,52 @@ public class BackgroundHttpClientPlugin: NSObject, FlutterPlugin, URLSessionDele
         return responseFile.path
     }
     
-    private func saveStatus(requestId: String, status: Int, error: String? = nil) {
+    private func saveStatus(requestId: String, status: Int, error: String? = nil, startTime: TimeInterval? = nil) {
         let storageDir = getStorageDirectory()
         let statusDir = storageDir.appendingPathComponent("status", isDirectory: true)
         
         try? FileManager.default.createDirectory(at: statusDir, withIntermediateDirectories: true)
         
         let statusFile = statusDir.appendingPathComponent("\(requestId).json")
-        let statusData: [String: Any] = [
+        
+        // Если startTime не указан, но статус IN_PROGRESS, сохраняем текущее время
+        // Если статус не IN_PROGRESS, сохраняем существующее время начала (если есть)
+        var finalStartTime: TimeInterval? = startTime
+        if finalStartTime == nil && status == 0 { // 0 = IN_PROGRESS
+            finalStartTime = Date().timeIntervalSince1970 * 1000 // В миллисекундах
+        } else if finalStartTime == nil {
+            // Загружаем существующий статус, чтобы сохранить время начала
+            if let existingStatus = loadStatusData(requestId: requestId),
+               let existingStartTime = existingStatus["startTime"] as? TimeInterval {
+                finalStartTime = existingStartTime
+            }
+        }
+        
+        var statusData: [String: Any] = [
             "requestId": requestId,
             "status": status,
             "error": error ?? ""
         ]
         
+        if let startTime = finalStartTime {
+            statusData["startTime"] = startTime
+        }
+        
         if let jsonData = try? JSONSerialization.data(withJSONObject: statusData) {
             try? jsonData.write(to: statusFile)
         }
+    }
+    
+    private func loadStatusData(requestId: String) -> [String: Any]? {
+        let storageDir = getStorageDirectory()
+        let statusFile = storageDir.appendingPathComponent("status/\(requestId).json")
+        
+        guard let data = try? Data(contentsOf: statusFile),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return nil
+        }
+        
+        return json
     }
     
     private func loadStatus(requestId: String) -> Int? {

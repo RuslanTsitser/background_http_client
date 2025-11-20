@@ -91,14 +91,21 @@ object FileManager {
     }
 
     /**
-     * Загружает запрос из файла
+     * Получает файл запроса
      */
-    fun loadRequest(context: Context, requestId: String): HttpRequest? {
+    fun getRequestFile(context: Context, requestId: String): File? {
         val storageDir = getStorageDir(context)
         val requestsDir = File(storageDir, REQUESTS_DIR)
         val requestFile = File(requestsDir, "$requestId.json")
+        return if (requestFile.exists()) requestFile else null
+    }
 
-        return if (requestFile.exists()) {
+    /**
+     * Загружает запрос из файла
+     */
+    fun loadRequest(context: Context, requestId: String): HttpRequest? {
+        val requestFile = getRequestFile(context, requestId)
+        return if (requestFile != null) {
             try {
                 val json = requestFile.readText()
                 Json.decodeFromString<HttpRequest>(json)
