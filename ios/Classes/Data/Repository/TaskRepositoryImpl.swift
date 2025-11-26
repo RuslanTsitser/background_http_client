@@ -1,9 +1,11 @@
 import Foundation
 
 /// Реализация репозитория для работы с задачами HTTP запросов
-class TaskRepositoryImpl: TaskRepository {
+actor TaskRepositoryImpl: TaskRepository {
     private let fileStorage: FileStorageDataSource
     private let urlSession: URLSessionDataSource
+    // Set для отслеживания запросов, которые находятся в процессе создания
+    private var creatingTasks = Set<String>()
     
     init() {
         self.fileStorage = FileStorageDataSource()
@@ -12,6 +14,40 @@ class TaskRepositoryImpl: TaskRepository {
     
     func createTask(request: HttpRequest) async throws -> TaskInfo {
         let requestId = request.requestId ?? RequestMapper.generateRequestId()
+        
+        // Защита от race condition: используем actor для синхронизации
+        // Проверяем, не создается ли уже запрос с таким requestId
+        if creatingTasks.contains(requestId) {
+            // Запрос уже создается в другом потоке, ждем и возвращаем существующий
+            try await Task.sleep(nanoseconds: 100_000_000) // 100ms
+            if let existingTask = try await getTaskInfo(requestId: requestId) {
+                return existingTask
+            }
+            throw NSError(domain: "TaskRepositoryImpl", code: -2, userInfo: [NSLocalizedDescriptionKey: "Failed to get task info after creation attempt"])
+        }
+        
+        // Проверяем, существует ли уже запрос с таким requestId
+        if let existingTask = try await getTaskInfo(requestId: requestId) {
+            // Запрос уже существует
+            // Проверяем статус запроса
+            let status = existingTask.status
+            if status == .inProgress {
+                // Запрос уже выполняется, возвращаем существующий
+                return existingTask
+            } else if status == .completed || status == .failed {
+                // Запрос уже завершен, возвращаем существующий
+                return existingTask
+            }
+        }
+        
+        // Помечаем, что запрос создается
+        creatingTasks.insert(requestId)
+        
+        defer {
+            // Убираем из множества создающихся запросов
+            creatingTasks.remove(requestId)
+        }
+        
         let registrationDate = Int64(Date().timeIntervalSince1970 * 1000)
         
         // Сохраняем запрос в файл

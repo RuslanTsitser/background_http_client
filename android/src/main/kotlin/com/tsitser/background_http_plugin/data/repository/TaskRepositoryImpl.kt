@@ -8,6 +8,8 @@ import com.tsitser.background_http_plugin.domain.entity.HttpRequest
 import com.tsitser.background_http_plugin.domain.entity.RequestStatus
 import com.tsitser.background_http_plugin.domain.entity.TaskInfo
 import com.tsitser.background_http_plugin.domain.repository.TaskRepository
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.util.UUID
 
 /**
@@ -19,18 +21,66 @@ class TaskRepositoryImpl(
 
     private val fileStorage = FileStorageDataSource(context)
     private val workManager = WorkManagerDataSource(context)
+    
+    // Mutex для защиты от race condition при создании запросов с одинаковым requestId
+    private val createTaskMutex = Mutex()
+    // Map для отслеживания запросов, которые находятся в процессе создания
+    private val creatingTasks = mutableSetOf<String>()
 
     override suspend fun createTask(request: HttpRequest): TaskInfo {
         val requestId = request.requestId ?: RequestMapper.generateRequestId()
-        val registrationDate = System.currentTimeMillis()
+        
+        // Защита от race condition: используем Mutex для синхронизации
+        return createTaskMutex.withLock {
+            // Проверяем, не создается ли уже запрос с таким requestId
+            if (creatingTasks.contains(requestId)) {
+                // Запрос уже создается в другом потоке, ждем и возвращаем существующий
+                // Небольшая задержка для завершения создания в другом потоке
+                kotlinx.coroutines.delay(100)
+                return@withLock getTaskInfo(requestId) 
+                    ?: throw IllegalStateException("Failed to get task info after creation attempt")
+            }
+            
+            // Проверяем, существует ли уже запрос с таким requestId
+            val existingTask = fileStorage.loadTaskInfo(requestId)
+            if (existingTask != null) {
+                // Запрос уже существует
+                val workState = workManager.getWorkState(requestId, forceRefresh = false)
+                when (workState) {
+                    WorkManagerDataSource.WorkStateResult.IN_PROGRESS,
+                    WorkManagerDataSource.WorkStateResult.SUCCEEDED,
+                    WorkManagerDataSource.WorkStateResult.FAILED -> {
+                        // Запрос уже выполняется или завершен, возвращаем существующий
+                        return@withLock existingTask
+                    }
+                    WorkManagerDataSource.WorkStateResult.NOT_FOUND -> {
+                        // Запрос существует в файловой системе, но не найден в WorkManager
+                        // Возможно, он был удален из WorkManager, но файлы остались
+                        // Пересоздаем задачу в WorkManager
+                        workManager.enqueueRequest(requestId)
+                        return@withLock existingTask
+                    }
+                }
+            }
+            
+            // Помечаем, что запрос создается
+            creatingTasks.add(requestId)
+            
+            try {
+                val registrationDate = System.currentTimeMillis()
 
-        // Сохраняем запрос в файл
-        val taskInfo = fileStorage.saveRequest(request, requestId, registrationDate)
+                // Сохраняем запрос в файл
+                val taskInfo = fileStorage.saveRequest(request, requestId, registrationDate)
 
-        // Запускаем задачу через WorkManager
-        workManager.enqueueRequest(requestId)
+                // Запускаем задачу через WorkManager
+                workManager.enqueueRequest(requestId)
 
-        return taskInfo
+                return@withLock taskInfo
+            } finally {
+                // Убираем из множества создающихся запросов
+                creatingTasks.remove(requestId)
+            }
+        }
     }
 
     override suspend fun getTaskInfo(requestId: String): TaskInfo? {
