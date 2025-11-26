@@ -5,6 +5,7 @@ import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.tsitser.background_http_plugin.domain.entity.RequestStatus
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.*
@@ -150,6 +151,10 @@ class HttpRequestWorker(
             )
 
             Result.success()
+        } catch (e: CancellationException) {
+            // Отмена задачи - это нормальное поведение, не ошибка
+            // Пробрасываем исключение дальше, чтобы WorkManager правильно обработал отмену
+            throw e
         } catch (e: Exception) {
             Log.e(TAG, "Error executing request $requestId", e)
             fileStorage.saveStatus(requestId, RequestStatus.FAILED)
