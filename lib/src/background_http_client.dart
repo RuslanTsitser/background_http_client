@@ -27,8 +27,8 @@ class BackgroundHttpClient {
   /// [stuckTimeoutBuffer] - запас времени в секундах для определения зависших запросов в процессе выполнения (по умолчанию 60)
   /// [queueTimeout] - максимальное время ожидания в очереди в секундах (по умолчанию 600 = 10 минут)
   ///
-  /// Возвращает [RequestInfo] с ID запроса и путем к файлу запроса
-  Future<RequestInfo> get(
+  /// Возвращает [TaskInfo] с информацией о созданной задаче
+  Future<TaskInfo> get(
     String url, {
     Map<String, String>? headers,
     Map<String, dynamic>? queryParameters,
@@ -49,7 +49,7 @@ class BackgroundHttpClient {
       stuckTimeoutBuffer: stuckTimeoutBuffer,
       queueTimeout: queueTimeout,
     );
-    return await _executeRequest(request);
+    return await _createRequest(request);
   }
 
   /// Выполняет POST запрос
@@ -64,8 +64,8 @@ class BackgroundHttpClient {
   /// [stuckTimeoutBuffer] - запас времени в секундах для определения зависших запросов в процессе выполнения (по умолчанию 60)
   /// [queueTimeout] - максимальное время ожидания в очереди в секундах (по умолчанию 600 = 10 минут)
   ///
-  /// Возвращает [RequestInfo] с ID запроса и путем к файлу запроса
-  Future<RequestInfo> post(
+  /// Возвращает [TaskInfo] с информацией о созданной задаче
+  Future<TaskInfo> post(
     String url, {
     dynamic data,
     Map<String, String>? headers,
@@ -102,7 +102,7 @@ class BackgroundHttpClient {
       stuckTimeoutBuffer: stuckTimeoutBuffer,
       queueTimeout: queueTimeout,
     );
-    return await _executeRequest(request);
+    return await _createRequest(request);
   }
 
   /// Выполняет PUT запрос
@@ -117,8 +117,8 @@ class BackgroundHttpClient {
   /// [stuckTimeoutBuffer] - запас времени в секундах для определения зависших запросов в процессе выполнения (по умолчанию 60)
   /// [queueTimeout] - максимальное время ожидания в очереди в секундах (по умолчанию 600 = 10 минут)
   ///
-  /// Возвращает [RequestInfo] с ID запроса и путем к файлу запроса
-  Future<RequestInfo> put(
+  /// Возвращает [TaskInfo] с информацией о созданной задаче
+  Future<TaskInfo> put(
     String url, {
     dynamic data,
     Map<String, String>? headers,
@@ -154,7 +154,7 @@ class BackgroundHttpClient {
       stuckTimeoutBuffer: stuckTimeoutBuffer,
       queueTimeout: queueTimeout,
     );
-    return await _executeRequest(request);
+    return await _createRequest(request);
   }
 
   /// Выполняет DELETE запрос
@@ -168,8 +168,8 @@ class BackgroundHttpClient {
   /// [stuckTimeoutBuffer] - запас времени в секундах для определения зависших запросов в процессе выполнения (по умолчанию 60)
   /// [queueTimeout] - максимальное время ожидания в очереди в секундах (по умолчанию 600 = 10 минут)
   ///
-  /// Возвращает [RequestInfo] с ID запроса и путем к файлу запроса
-  Future<RequestInfo> delete(
+  /// Возвращает [TaskInfo] с информацией о созданной задаче
+  Future<TaskInfo> delete(
     String url, {
     Map<String, String>? headers,
     Map<String, dynamic>? queryParameters,
@@ -190,7 +190,7 @@ class BackgroundHttpClient {
       stuckTimeoutBuffer: stuckTimeoutBuffer,
       queueTimeout: queueTimeout,
     );
-    return await _executeRequest(request);
+    return await _createRequest(request);
   }
 
   /// Выполняет PATCH запрос
@@ -205,8 +205,8 @@ class BackgroundHttpClient {
   /// [stuckTimeoutBuffer] - запас времени в секундах для определения зависших запросов в процессе выполнения (по умолчанию 60)
   /// [queueTimeout] - максимальное время ожидания в очереди в секундах (по умолчанию 600 = 10 минут)
   ///
-  /// Возвращает [RequestInfo] с ID запроса и путем к файлу запроса
-  Future<RequestInfo> patch(
+  /// Возвращает [TaskInfo] с информацией о созданной задаче
+  Future<TaskInfo> patch(
     String url, {
     dynamic data,
     Map<String, String>? headers,
@@ -242,7 +242,7 @@ class BackgroundHttpClient {
       stuckTimeoutBuffer: stuckTimeoutBuffer,
       queueTimeout: queueTimeout,
     );
-    return await _executeRequest(request);
+    return await _createRequest(request);
   }
 
   /// Выполняет HEAD запрос
@@ -256,8 +256,8 @@ class BackgroundHttpClient {
   /// [stuckTimeoutBuffer] - запас времени в секундах для определения зависших запросов в процессе выполнения (по умолчанию 60)
   /// [queueTimeout] - максимальное время ожидания в очереди в секундах (по умолчанию 600 = 10 минут)
   ///
-  /// Возвращает [RequestInfo] с ID запроса и путем к файлу запроса
-  Future<RequestInfo> head(
+  /// Возвращает [TaskInfo] с информацией о созданной задаче
+  Future<TaskInfo> head(
     String url, {
     Map<String, String>? headers,
     Map<String, dynamic>? queryParameters,
@@ -278,7 +278,7 @@ class BackgroundHttpClient {
       stuckTimeoutBuffer: stuckTimeoutBuffer,
       queueTimeout: queueTimeout,
     );
-    return await _executeRequest(request);
+    return await _createRequest(request);
   }
 
   /// Выполняет multipart/form-data запрос
@@ -294,8 +294,8 @@ class BackgroundHttpClient {
   /// [stuckTimeoutBuffer] - запас времени в секундах для определения зависших запросов в процессе выполнения (по умолчанию 60)
   /// [queueTimeout] - максимальное время ожидания в очереди в секундах (по умолчанию 600 = 10 минут)
   ///
-  /// Возвращает [RequestInfo] с ID запроса и путем к файлу запроса
-  Future<RequestInfo> postMultipart(
+  /// Возвращает [TaskInfo] с информацией о созданной задаче
+  Future<TaskInfo> postMultipart(
     String url, {
     Map<String, String>? fields,
     Map<String, MultipartFile>? files,
@@ -320,60 +320,64 @@ class BackgroundHttpClient {
       stuckTimeoutBuffer: stuckTimeoutBuffer,
       queueTimeout: queueTimeout,
     );
-    return await _executeRequest(request);
+    return await _createRequest(request);
   }
 
   /// Выполняет произвольный HTTP запрос
   ///
   /// [request] - объект [HttpRequest] с параметрами запроса
   ///
-  /// Возвращает [RequestInfo] с ID запроса и путем к файлу запроса
-  Future<RequestInfo> request(HttpRequest request) async {
-    return await _executeRequest(request);
+  /// Возвращает [TaskInfo] с информацией о созданной задаче
+  Future<TaskInfo> request(HttpRequest request) async {
+    return await _createRequest(request);
   }
 
-  /// Внутренний метод для выполнения запроса
-  Future<RequestInfo> _executeRequest(HttpRequest request) async {
-    final result = await _platform.executeRequest(request.toJson());
-    return RequestInfo.fromJson(result);
+  /// Внутренний метод для создания запроса
+  Future<TaskInfo> _createRequest(HttpRequest request) async {
+    final result = await _platform.createRequest(request.toJson());
+    return TaskInfo.fromJson(result);
   }
 
-  /// Получает статус запроса по ID
+  /// Получает статус задачи по ID
   ///
-  /// [requestId] - ID запроса
+  /// [requestId] - ID задачи
   ///
-  /// Возвращает текущий статус запроса или null, если запрос не найден
-  Future<RequestStatus?> getRequestStatus(String requestId) async {
-    final statusIndex = await _platform.getRequestStatus(requestId);
-    if (statusIndex == null) {
+  /// Возвращает [TaskInfo] с информацией о задаче или null, если задача не найдена
+  Future<TaskInfo?> getRequestStatus(String requestId) async {
+    final result = await _platform.getRequestStatus(requestId);
+    if (result == null) {
       return null;
     }
-    return RequestStatus.values[statusIndex];
+    return TaskInfo.fromJson(result);
   }
 
-  /// Получает ответ от сервера по ID запроса
+  /// Получает ответ от сервера по ID задачи
   ///
-  /// [requestId] - ID запроса
+  /// [requestId] - ID задачи
   ///
-  /// Возвращает [HttpResponse] с данными ответа или null, если ответ еще не получен
-  Future<HttpResponse?> getResponse(String requestId) async {
+  /// Возвращает [TaskInfo] с данными ответа (включая responseJson) или null, если задача не найдена
+  Future<TaskInfo?> getResponse(String requestId) async {
     final result = await _platform.getResponse(requestId);
     if (result == null) {
       return null;
     }
-    return HttpResponse.fromJson(result);
+    return TaskInfo.fromJson(result);
   }
 
-  /// Отменяет запрос по ID
+  /// Отменяет задачу по ID
   ///
-  /// [requestId] - ID запроса для отмены
-  Future<void> cancelRequest(String requestId) async {
-    await _platform.cancelRequest(requestId);
+  /// [requestId] - ID задачи для отмены
+  ///
+  /// Возвращает true если задача отменена, false если не получилось отменить, null если задачи не существует
+  Future<bool?> cancelRequest(String requestId) async {
+    return await _platform.cancelRequest(requestId);
   }
 
-  /// Удаляет запрос и все связанные файлы по ID
+  /// Удаляет задачу и все связанные файлы по ID
   ///
-  /// [requestId] - ID запроса для удаления
+  /// [requestId] - ID задачи для удаления
+  ///
+  /// Возвращает true если задача удалена, false если не получилось удалить, null если задачи не существует
   ///
   /// Удаляет:
   /// - Все WorkManager задачи (Android) или активные задачи (iOS)
@@ -381,8 +385,7 @@ class BackgroundHttpClient {
   /// - Файл ответа (JSON и данные)
   /// - Файл статуса
   /// - Файл body запроса (если существует)
-  Future<void> deleteRequest(String requestId) async {
-    await _platform.deleteRequest(requestId);
+  Future<bool?> deleteRequest(String requestId) async {
+    return await _platform.deleteRequest(requestId);
   }
 }
-

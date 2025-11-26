@@ -24,44 +24,48 @@ abstract class BackgroundHttpClientPlatform extends PlatformInterface {
     _instance = instance;
   }
 
-  /// Выполняет HTTP запрос в фоновом режиме
+  /// Создает HTTP запрос в нативном HTTP сервисе
   ///
   /// [requestJson] - JSON представление [HttpRequest]
   ///
-  /// Возвращает JSON с [RequestInfo] (requestId и requestFilePath)
-  Future<Map<String, dynamic>> executeRequest(Map<String, dynamic> requestJson) {
-    throw UnimplementedError('executeRequest() has not been implemented.');
+  /// Возвращает JSON с [TaskInfo] (id, status, path, registrationDate)
+  Future<Map<String, dynamic>> createRequest(Map<String, dynamic> requestJson) {
+    throw UnimplementedError('createRequest() has not been implemented.');
   }
 
-  /// Получает статус запроса по ID
+  /// Получает статус задачи по ID
   ///
-  /// [requestId] - ID запроса
+  /// [requestId] - ID задачи
   ///
-  /// Возвращает индекс статуса в enum [RequestStatus] или null, если запрос не найден
-  Future<int?> getRequestStatus(String requestId) {
+  /// Возвращает JSON с [TaskInfo] (id, status, path, registrationDate) или null, если задача не найдена
+  Future<Map<String, dynamic>?> getRequestStatus(String requestId) {
     throw UnimplementedError('getRequestStatus() has not been implemented.');
   }
 
-  /// Получает ответ от сервера по ID запроса
+  /// Получает ответ от сервера по ID задачи
   ///
-  /// [requestId] - ID запроса
+  /// [requestId] - ID задачи
   ///
-  /// Возвращает JSON с [HttpResponse] или null, если ответ еще не получен
+  /// Возвращает JSON с [TaskInfo] (id, status, path, registrationDate, responseJson) или null, если задача не найдена
   Future<Map<String, dynamic>?> getResponse(String requestId) {
     throw UnimplementedError('getResponse() has not been implemented.');
   }
 
-  /// Отменяет запрос по ID
+  /// Отменяет задачу по ID
   ///
-  /// [requestId] - ID запроса для отмены
-  Future<void> cancelRequest(String requestId) {
+  /// [requestId] - ID задачи для отмены
+  ///
+  /// Возвращает true если задача отменена, false если не получилось отменить, null если задачи не существует
+  Future<bool?> cancelRequest(String requestId) {
     throw UnimplementedError('cancelRequest() has not been implemented.');
   }
 
-  /// Удаляет запрос и все связанные файлы по ID
+  /// Удаляет задачу и все связанные файлы по ID
   ///
-  /// [requestId] - ID запроса для удаления
-  Future<void> deleteRequest(String requestId) {
+  /// [requestId] - ID задачи для удаления
+  ///
+  /// Возвращает true если задача удалена, false если не получилось удалить, null если задачи не существует
+  Future<bool?> deleteRequest(String requestId) {
     throw UnimplementedError('deleteRequest() has not been implemented.');
   }
 }

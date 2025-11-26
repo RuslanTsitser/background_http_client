@@ -4,38 +4,39 @@ import 'package:flutter/services.dart';
 import 'background_http_client_platform_interface.dart';
 
 /// Реализация [BackgroundHttpClientPlatform] используя method channels
-class MethodChannelBackgroundHttpClient
-    extends BackgroundHttpClientPlatform {
+class MethodChannelBackgroundHttpClient extends BackgroundHttpClientPlatform {
   /// Method channel для взаимодействия с нативной платформой
   @visibleForTesting
   final methodChannel = const MethodChannel('background_http_client');
 
   @override
-  Future<Map<String, dynamic>> executeRequest(
-      Map<String, dynamic> requestJson) async {
+  Future<Map<String, dynamic>> createRequest(Map<String, dynamic> requestJson) async {
     final result = await methodChannel.invokeMethod<Map<Object?, Object?>>(
-      'executeRequest',
+      'createRequest',
       requestJson,
     );
     if (result == null) {
       throw PlatformException(
-        code: 'EXECUTE_REQUEST_FAILED',
-        message: 'Failed to execute request',
+        code: 'CREATE_REQUEST_FAILED',
+        message: 'Failed to create request',
       );
     }
     return Map<String, dynamic>.from(result);
   }
 
   @override
-  Future<int?> getRequestStatus(String requestId) async {
+  Future<Map<String, dynamic>?> getRequestStatus(String requestId) async {
     try {
-      final result = await methodChannel.invokeMethod<int>(
+      final result = await methodChannel.invokeMethod<Map<Object?, Object?>>(
         'getRequestStatus',
         {'requestId': requestId},
       );
-      return result;
+      if (result == null) {
+        return null;
+      }
+      return Map<String, dynamic>.from(result);
     } on PlatformException catch (e) {
-      // Если запрос не найден, возвращаем null вместо ошибки
+      // Если задача не найдена, возвращаем null вместо ошибки
       if (e.code == 'NOT_FOUND') {
         return null;
       }
@@ -45,29 +46,55 @@ class MethodChannelBackgroundHttpClient
 
   @override
   Future<Map<String, dynamic>?> getResponse(String requestId) async {
-    final result = await methodChannel.invokeMethod<Map<Object?, Object?>>(
-      'getResponse',
-      {'requestId': requestId},
-    );
-    if (result == null) {
-      return null;
+    try {
+      final result = await methodChannel.invokeMethod<Map<Object?, Object?>>(
+        'getResponse',
+        {'requestId': requestId},
+      );
+      if (result == null) {
+        return null;
+      }
+      return Map<String, dynamic>.from(result);
+    } on PlatformException catch (e) {
+      // Если задача не найдена, возвращаем null вместо ошибки
+      if (e.code == 'NOT_FOUND') {
+        return null;
+      }
+      rethrow;
     }
-    return Map<String, dynamic>.from(result);
   }
 
   @override
-  Future<void> cancelRequest(String requestId) async {
-    await methodChannel.invokeMethod<void>(
-      'cancelRequest',
-      {'requestId': requestId},
-    );
+  Future<bool?> cancelRequest(String requestId) async {
+    try {
+      final result = await methodChannel.invokeMethod<bool>(
+        'cancelRequest',
+        {'requestId': requestId},
+      );
+      return result;
+    } on PlatformException catch (e) {
+      // Если задача не найдена, возвращаем null
+      if (e.code == 'NOT_FOUND') {
+        return null;
+      }
+      rethrow;
+    }
   }
 
   @override
-  Future<void> deleteRequest(String requestId) async {
-    await methodChannel.invokeMethod<void>(
-      'deleteRequest',
-      {'requestId': requestId},
-    );
+  Future<bool?> deleteRequest(String requestId) async {
+    try {
+      final result = await methodChannel.invokeMethod<bool>(
+        'deleteRequest',
+        {'requestId': requestId},
+      );
+      return result;
+    } on PlatformException catch (e) {
+      // Если задача не найдена, возвращаем null
+      if (e.code == 'NOT_FOUND') {
+        return null;
+      }
+      rethrow;
+    }
   }
 }

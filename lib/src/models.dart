@@ -257,3 +257,61 @@ class RequestInfo {
   }
 }
 
+/// Информация о задаче в нативном HTTP сервисе
+class TaskInfo {
+  /// Уникальный ID задачи
+  final String id;
+
+  /// Статус задачи (индекс в enum RequestStatus)
+  final int status;
+
+  /// Путь к файлу с данными задачи
+  final String path;
+
+  /// Дата регистрации задачи в нативном HTTP сервисе (timestamp в миллисекундах)
+  final int registrationDate;
+
+  /// JSON ответа (только для getResponse, опционально)
+  final Map<String, dynamic>? responseJson;
+
+  TaskInfo({
+    required this.id,
+    required this.status,
+    required this.path,
+    required this.registrationDate,
+    this.responseJson,
+  });
+
+  /// Создает объект из JSON
+  factory TaskInfo.fromJson(Map<String, dynamic> json) {
+    return TaskInfo(
+      id: json['id'] as String,
+      status: json['status'] as int,
+      path: json['path'] as String,
+      registrationDate: json['registrationDate'] as int,
+      responseJson: json['responseJson'] != null
+          ? Map<String, dynamic>.from(
+              json['responseJson'] as Map<dynamic, dynamic>)
+          : null,
+    );
+  }
+
+  /// Преобразует объект в JSON
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'status': status,
+      'path': path,
+      'registrationDate': registrationDate,
+      if (responseJson != null) 'responseJson': responseJson,
+    };
+  }
+
+  /// Получает статус как enum
+  RequestStatus get statusEnum => RequestStatus.values[status];
+
+  /// Получает дату регистрации как DateTime
+  DateTime get registrationDateTime =>
+      DateTime.fromMillisecondsSinceEpoch(registrationDate);
+}
+

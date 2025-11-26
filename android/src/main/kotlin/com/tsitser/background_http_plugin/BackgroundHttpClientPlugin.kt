@@ -23,24 +23,29 @@ class BackgroundHttpClientPlugin :
         result: Result
     ) {
         when (call.method) {
-            "executeRequest" -> {
-                // TODO: Реализовать выполнение HTTP запроса в фоновом режиме
+            "createRequest" -> {
+                // TODO: Реализовать создание HTTP запроса в нативном HTTP сервисе
+                // Возвращает: Map с полями id (String), status (Int), path (String), registrationDate (Long - timestamp в миллисекундах)
                 result.notImplemented()
             }
             "getRequestStatus" -> {
-                // TODO: Реализовать получение статуса запроса по ID
+                // TODO: Реализовать получение статуса задачи по ID
+                // Возвращает: Map с полями id, status, path, registrationDate или null если задача не найдена
                 result.notImplemented()
             }
             "getResponse" -> {
-                // TODO: Реализовать получение ответа от сервера по ID запроса
+                // TODO: Реализовать получение ответа от сервера по ID задачи
+                // Возвращает: Map с полями id, status, path, registrationDate, responseJson или null если задача не найдена
                 result.notImplemented()
             }
             "cancelRequest" -> {
-                // TODO: Реализовать отмену запроса по ID
+                // TODO: Реализовать отмену задачи по ID
+                // Возвращает: Boolean (true - отменена, false - не получилось, null - не существует)
                 result.notImplemented()
             }
             "deleteRequest" -> {
-                // TODO: Реализовать удаление запроса и всех связанных файлов по ID
+                // TODO: Реализовать удаление задачи и всех связанных файлов по ID
+                // Возвращает: Boolean (true - удалена, false - не получилось, null - не существует)
                 result.notImplemented()
             }
             else -> {
