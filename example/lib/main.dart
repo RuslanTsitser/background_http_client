@@ -12,11 +12,20 @@ void main() {
 
 class RequestItem {
   final String id;
-  final String requestFilePath;
+  final String path;
+  final DateTime registrationDate;
   String? responseFilePath;
   RequestStatus? status;
+  Map<String, dynamic>? responseJson;
 
-  RequestItem({required this.id, required this.requestFilePath, this.responseFilePath, this.status});
+  RequestItem({
+    required this.id,
+    required this.path,
+    required this.registrationDate,
+    this.responseFilePath,
+    this.status,
+    this.responseJson,
+  });
 }
 
 class MyApp extends StatefulWidget {
@@ -52,24 +61,31 @@ class _MyAppState extends State<MyApp> {
 
       for (final request in pendingRequests) {
         try {
-          final status = await _client.getRequestStatus(request.id);
-          
-          // Если статус null, запрос не найден - пропускаем
-          if (status == null) {
+          final taskInfo = await _client.getRequestStatus(request.id);
+
+          // Если задача не найдена - пропускаем
+          if (taskInfo == null) {
             continue;
           }
 
-          if (status == RequestStatus.completed || status == RequestStatus.failed) {
-            final response = await _client.getResponse(request.id);
-            if (response != null && mounted) {
+          if (taskInfo.statusEnum == RequestStatus.completed || taskInfo.statusEnum == RequestStatus.failed) {
+            final responseTaskInfo = await _client.getResponse(request.id);
+            if (responseTaskInfo != null && mounted) {
               setState(() {
-                request.status = status;
-                request.responseFilePath = response.responseFilePath;
+                request.status = responseTaskInfo.statusEnum;
+                // Извлекаем responseFilePath из responseJson если есть
+                if (responseTaskInfo.responseJson != null) {
+                  final responseFilePath = responseTaskInfo.responseJson!['responseFilePath'] as String?;
+                  if (responseFilePath != null && responseFilePath.isNotEmpty) {
+                    request.responseFilePath = responseFilePath;
+                  }
+                }
+                request.responseJson = responseTaskInfo.responseJson;
               });
             }
           } else if (mounted) {
             setState(() {
-              request.status = status;
+              request.status = taskInfo.statusEnum;
             });
           }
         } catch (e) {
@@ -81,13 +97,14 @@ class _MyAppState extends State<MyApp> {
 
   Future<void> _createGetRequest() async {
     try {
-      final requestInfo = await _client.get('https://httpbin.org/get', queryParameters: {'test': 'value'});
+      final taskInfo = await _client.get('https://httpbin.org/get', queryParameters: {'test': 'value'});
       setState(() {
         _requests.add(
           RequestItem(
-            id: requestInfo.requestId,
-            requestFilePath: requestInfo.requestFilePath,
-            status: RequestStatus.inProgress,
+            id: taskInfo.id,
+            path: taskInfo.path,
+            registrationDate: taskInfo.registrationDateTime,
+            status: taskInfo.statusEnum,
           ),
         );
       });
@@ -106,7 +123,7 @@ class _MyAppState extends State<MyApp> {
   Future<void> _createGetRequestWithCustomId() async {
     try {
       final customId = 'my-custom-get-request-${DateTime.now().millisecondsSinceEpoch}';
-      final requestInfo = await _client.get(
+      final taskInfo = await _client.get(
         'https://httpbin.org/get',
         queryParameters: {'customId': customId},
         requestId: customId,
@@ -114,9 +131,10 @@ class _MyAppState extends State<MyApp> {
       setState(() {
         _requests.add(
           RequestItem(
-            id: requestInfo.requestId,
-            requestFilePath: requestInfo.requestFilePath,
-            status: RequestStatus.inProgress,
+            id: taskInfo.id,
+            path: taskInfo.path,
+            registrationDate: taskInfo.registrationDateTime,
+            status: taskInfo.statusEnum,
           ),
         );
       });
@@ -134,7 +152,7 @@ class _MyAppState extends State<MyApp> {
 
   Future<void> _createPostRequest() async {
     try {
-      final requestInfo = await _client.post(
+      final taskInfo = await _client.post(
         'https://httpbin.org/post',
         data: {'message': 'Hello from background_http_client'},
         headers: {'Content-Type': 'application/json'},
@@ -142,9 +160,10 @@ class _MyAppState extends State<MyApp> {
       setState(() {
         _requests.add(
           RequestItem(
-            id: requestInfo.requestId,
-            requestFilePath: requestInfo.requestFilePath,
-            status: RequestStatus.inProgress,
+            id: taskInfo.id,
+            path: taskInfo.path,
+            registrationDate: taskInfo.registrationDateTime,
+            status: taskInfo.statusEnum,
           ),
         );
       });
@@ -170,7 +189,7 @@ class _MyAppState extends State<MyApp> {
         return;
       }
 
-      final requestInfo = await _client.postMultipart(
+      final taskInfo = await _client.postMultipart(
         'https://httpbin.org/post',
         fields: {'description': 'Тестовый файл', 'category': 'example'},
         files: {'file': MultipartFile(filePath: testFile.path, filename: 'test_file.txt', contentType: 'text/plain')},
@@ -179,9 +198,10 @@ class _MyAppState extends State<MyApp> {
       setState(() {
         _requests.add(
           RequestItem(
-            id: requestInfo.requestId,
-            requestFilePath: requestInfo.requestFilePath,
-            status: RequestStatus.inProgress,
+            id: taskInfo.id,
+            path: taskInfo.path,
+            registrationDate: taskInfo.registrationDateTime,
+            status: taskInfo.statusEnum,
           ),
         );
       });
@@ -200,13 +220,14 @@ class _MyAppState extends State<MyApp> {
   Future<void> _createLargeFileDownload() async {
     try {
       final customId = 'large-file-download-${DateTime.now().millisecondsSinceEpoch}';
-      final requestInfo = await _client.get('https://httpbin.org/bytes/500000', requestId: customId);
+      final taskInfo = await _client.get('https://httpbin.org/bytes/500000', requestId: customId);
       setState(() {
         _requests.add(
           RequestItem(
-            id: requestInfo.requestId,
-            requestFilePath: requestInfo.requestFilePath,
-            status: RequestStatus.inProgress,
+            id: taskInfo.id,
+            path: taskInfo.path,
+            registrationDate: taskInfo.registrationDateTime,
+            status: taskInfo.statusEnum,
           ),
         );
       });
@@ -328,10 +349,15 @@ class _MyAppState extends State<MyApp> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 const SizedBox(height: 4),
+                                Text(
+                                  'Зарегистрировано: ${request.registrationDate.toString().substring(0, 19)}',
+                                  style: const TextStyle(fontSize: 10, color: Colors.grey),
+                                ),
+                                const SizedBox(height: 4),
                                 TextButton(
-                                  onPressed: () => _openFile(request.requestFilePath),
+                                  onPressed: () => _openFile(request.path),
                                   child: Text(
-                                    'Запрос: ${request.requestFilePath.split('/').last}',
+                                    'Запрос: ${request.path.split('/').last}',
                                     style: const TextStyle(fontSize: 12),
                                   ),
                                 ),
