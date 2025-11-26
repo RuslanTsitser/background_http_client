@@ -40,20 +40,27 @@ object RequestMapper {
         }
 
         @Suppress("UNCHECKED_CAST")
-        val multipartFilesMap = (map["multipartFiles"] as? Map<*, *>)?.let { map ->
-            map.filterKeys { it is String }
-                .filterValues { it is Map<*, *> }
-                .mapKeys { it.key as String }
-                .mapValues { value ->
-                    @Suppress("UNCHECKED_CAST")
-                    val fileMap = value as Map<String, Any>
-                    MultipartFile(
-                        filePath = fileMap["filePath"] as String,
-                        filename = fileMap["filename"] as? String,
-                        contentType = fileMap["contentType"] as? String
-                    )
+        val multipartFilesMap = (map["multipartFiles"] as? Map<*, *>)?.let { filesMap ->
+            val result = mutableMapOf<String, MultipartFile>()
+            filesMap.forEach { (key, value) ->
+                if (key is String && value is Map<*, *>) {
+                    try {
+                        @Suppress("UNCHECKED_CAST")
+                        val fileMap = value as Map<String, Any>
+                        val filePath = fileMap["filePath"] as? String
+                        if (filePath != null) {
+                            result[key] = MultipartFile(
+                                filePath = filePath,
+                                filename = fileMap["filename"] as? String,
+                                contentType = fileMap["contentType"] as? String
+                            )
+                        }
+                    } catch (e: Exception) {
+                        android.util.Log.e("RequestMapper", "Error parsing file for key: $key", e)
+                    }
                 }
-                .takeIf { it.isNotEmpty() }
+            }
+            result.takeIf { it.isNotEmpty() }
         }
 
         return HttpRequest(

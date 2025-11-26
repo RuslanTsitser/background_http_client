@@ -8,6 +8,7 @@ import com.tsitser.background_http_plugin.domain.entity.RequestStatus
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.*
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -51,14 +52,41 @@ class HttpRequestWorker(
             val body = requestJson.optString("body").takeIf { it.isNotEmpty() }
             val queryParameters = requestJson.optJSONObject("queryParameters")?.toMap() as? Map<String, String>
             val timeout = requestJson.optInt("timeout", 120)
-            val multipartFields = requestJson.optJSONObject("multipartFields")?.toMap() as? Map<String, String>
-            val multipartFiles = requestJson.optJSONObject("multipartFiles")?.toMap()
+            
+            // Парсим multipartFields
+            val multipartFields = requestJson.optJSONObject("multipartFields")?.let { json ->
+                val map = mutableMapOf<String, String>()
+                json.keys().forEach { key ->
+                    val value = json.optString(key, "")
+                    if (value.isNotEmpty()) {
+                        map[key] = value
+                    }
+                }
+                map.takeIf { it.isNotEmpty() }
+            }
+            
+            // Парсим multipartFiles
+            val multipartFiles = requestJson.optJSONObject("multipartFiles")?.let { json ->
+                val map = mutableMapOf<String, Map<String, Any>>()
+                json.keys().forEach { key ->
+                    val fileObj = json.optJSONObject(key)
+                    if (fileObj != null) {
+                        val fileMap = mutableMapOf<String, Any>()
+                        fileMap["filePath"] = fileObj.optString("filePath", "")
+                        fileMap["filename"] = fileObj.optString("filename", "")
+                        fileMap["contentType"] = fileObj.optString("contentType", "")
+                        map[key] = fileMap
+                    }
+                }
+                map.takeIf { it.isNotEmpty() }
+            }
+            
             val retries = requestJson.optInt("retries", 0)
 
             // Строим URL с query параметрами
             var requestUrl = url
             if (!queryParameters.isNullOrEmpty()) {
-                val urlBuilder = HttpUrl.parse(url)?.newBuilder()
+                val urlBuilder = url.toHttpUrlOrNull()?.newBuilder()
                 queryParameters.forEach { (key, value) ->
                     urlBuilder?.addQueryParameter(key, value)
                 }
@@ -88,9 +116,11 @@ class HttpRequestWorker(
                 .url(requestUrl)
                 .method(method, requestBody)
 
-            // Добавляем заголовки
+            // Добавляем заголовки (но не Content-Type для multipart, OkHttp установит его автоматически)
             headers?.forEach { (key, value) ->
-                requestBuilder.addHeader(key, value)
+                if (requestBody == null || key.lowercase() != "content-type") {
+                    requestBuilder.addHeader(key, value)
+                }
             }
 
             // Выполняем запрос
@@ -138,11 +168,8 @@ class HttpRequestWorker(
 
     private fun buildMultipartBody(
         fields: Map<String, String>?,
-        files: Map<String, Any>?
+        files: Map<String, Map<String, Any>>?
     ): RequestBody {
-        val boundary = "----WebKitFormBoundary${java.util.UUID.randomUUID()}"
-        val mediaType = "multipart/form-data; boundary=$boundary".toMediaType()
-
         return MultipartBody.Builder()
             .setType(MultipartBody.FORM)
             .apply {
@@ -150,22 +177,26 @@ class HttpRequestWorker(
                     addFormDataPart(key, value)
                 }
                 files?.forEach { (fieldName, fileInfo) ->
-                    val fileMap = fileInfo as? Map<*, *>
-                    val filePath = fileMap?.get("filePath") as? String
-                    val filename = fileMap?.get("filename") as? String
-                    val contentType = fileMap?.get("contentType") as? String
+                    val filePath = fileInfo["filePath"] as? String
+                    val filename = fileInfo["filename"] as? String
+                    val contentType = fileInfo["contentType"] as? String
 
                     if (filePath != null) {
                         val file = File(filePath)
                         if (file.exists()) {
-                            val fileMediaType = contentType?.toMediaType()
-                                ?: "application/octet-stream".toMediaType()
+                            val fileMediaType = (contentType?.takeIf { it.isNotEmpty() }?.toMediaType()
+                                ?: "application/octet-stream".toMediaType())
+                            val finalFilename = filename?.takeIf { it.isNotEmpty() } ?: file.name
                             addFormDataPart(
                                 fieldName,
-                                filename ?: file.name,
+                                finalFilename,
                                 file.asRequestBody(fileMediaType)
                             )
+                        } else {
+                            Log.e(TAG, "File not found: $filePath")
                         }
+                    } else {
+                        Log.e(TAG, "File path is null for field: $fieldName")
                     }
                 }
             }

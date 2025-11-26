@@ -55,11 +55,13 @@ class MethodCallHandler(private val context: Context) : MethodChannel.MethodCall
                     val response = TaskInfoMapper.toFlutterMap(taskInfo)
                     result.success(response)
                 } catch (e: Exception) {
-                    result.error("CREATE_REQUEST_FAILED", e.message, null)
+                    android.util.Log.e("MethodCallHandler", "Error creating request", e)
+                    result.error("CREATE_REQUEST_FAILED", "${e.message}\n${e.stackTraceToString()}", null)
                 }
             }
         } catch (e: Exception) {
-            result.error("INVALID_ARGUMENT", e.message, null)
+            android.util.Log.e("MethodCallHandler", "Error parsing request", e)
+            result.error("INVALID_ARGUMENT", "${e.message}\n${e.stackTraceToString()}", null)
         }
     }
 

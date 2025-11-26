@@ -162,7 +162,7 @@ class FileStorageDataSource(private val context: Context) {
             val jsonString = statusFile.readText()
             val json = JSONObject(jsonString)
             val statusValue = json.getInt("status")
-            RequestStatus.values.firstOrNull { it.value == statusValue }
+            enumValues<RequestStatus>().firstOrNull { it.value == statusValue }
         } catch (e: Exception) {
             null
         }
