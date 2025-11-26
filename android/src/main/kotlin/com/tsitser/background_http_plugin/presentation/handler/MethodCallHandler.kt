@@ -1,0 +1,196 @@
+package com.tsitser.background_http_plugin.presentation.handler
+
+import android.content.Context
+import com.tsitser.background_http_plugin.data.mapper.RequestMapper
+import com.tsitser.background_http_plugin.data.mapper.TaskInfoMapper
+import com.tsitser.background_http_plugin.data.repository.TaskRepositoryImpl
+import com.tsitser.background_http_plugin.domain.usecase.*
+import io.flutter.plugin.common.MethodCall
+import io.flutter.plugin.common.MethodChannel
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+
+/**
+ * Обработчик вызовов методов от Flutter
+ */
+class MethodCallHandler(private val context: Context) : MethodChannel.MethodCallHandler {
+
+    private val repository = TaskRepositoryImpl(context)
+    private val createRequestUseCase = CreateRequestUseCase(repository)
+    private val getRequestStatusUseCase = GetRequestStatusUseCase(repository)
+    private val getResponseUseCase = GetResponseUseCase(repository)
+    private val cancelRequestUseCase = CancelRequestUseCase(repository)
+    private val deleteRequestUseCase = DeleteRequestUseCase(repository)
+
+    private val scope = CoroutineScope(Dispatchers.Main)
+
+    override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
+        when (call.method) {
+            "createRequest" -> handleCreateRequest(call, result)
+            "getRequestStatus" -> handleGetRequestStatus(call, result)
+            "getResponse" -> handleGetResponse(call, result)
+            "cancelRequest" -> handleCancelRequest(call, result)
+            "deleteRequest" -> handleDeleteRequest(call, result)
+            else -> result.notImplemented()
+        }
+    }
+
+    private fun handleCreateRequest(call: MethodCall, result: MethodChannel.Result) {
+        try {
+            @Suppress("UNCHECKED_CAST")
+            val requestMap = call.arguments as? Map<*, *>
+                ?: run {
+                    result.error("INVALID_ARGUMENT", "Request data is required", null)
+                    return
+                }
+
+            scope.launch {
+                try {
+                    val request = RequestMapper.fromFlutterMap(requestMap)
+                    val taskInfo = withContext(Dispatchers.IO) {
+                        createRequestUseCase(request)
+                    }
+                    val response = TaskInfoMapper.toFlutterMap(taskInfo)
+                    result.success(response)
+                } catch (e: Exception) {
+                    result.error("CREATE_REQUEST_FAILED", e.message, null)
+                }
+            }
+        } catch (e: Exception) {
+            result.error("INVALID_ARGUMENT", e.message, null)
+        }
+    }
+
+    private fun handleGetRequestStatus(call: MethodCall, result: MethodChannel.Result) {
+        try {
+            @Suppress("UNCHECKED_CAST")
+            val args = call.arguments as? Map<*, *>
+                ?: run {
+                    result.error("INVALID_ARGUMENT", "Request ID is required", null)
+                    return
+                }
+
+            val requestId = args["requestId"] as? String
+                ?: run {
+                    result.error("INVALID_ARGUMENT", "Request ID is required", null)
+                    return
+                }
+
+            scope.launch {
+                try {
+                    val taskInfo = withContext(Dispatchers.IO) {
+                        getRequestStatusUseCase(requestId)
+                    }
+                    if (taskInfo != null) {
+                        val response = TaskInfoMapper.toFlutterMap(taskInfo)
+                        result.success(response)
+                    } else {
+                        result.success(null)
+                    }
+                } catch (e: Exception) {
+                    result.error("GET_STATUS_FAILED", e.message, null)
+                }
+            }
+        } catch (e: Exception) {
+            result.error("INVALID_ARGUMENT", e.message, null)
+        }
+    }
+
+    private fun handleGetResponse(call: MethodCall, result: MethodChannel.Result) {
+        try {
+            @Suppress("UNCHECKED_CAST")
+            val args = call.arguments as? Map<*, *>
+                ?: run {
+                    result.error("INVALID_ARGUMENT", "Request ID is required", null)
+                    return
+                }
+
+            val requestId = args["requestId"] as? String
+                ?: run {
+                    result.error("INVALID_ARGUMENT", "Request ID is required", null)
+                    return
+                }
+
+            scope.launch {
+                try {
+                    val taskInfo = withContext(Dispatchers.IO) {
+                        getResponseUseCase(requestId)
+                    }
+                    if (taskInfo != null) {
+                        val response = TaskInfoMapper.toFlutterMap(taskInfo)
+                        result.success(response)
+                    } else {
+                        result.success(null)
+                    }
+                } catch (e: Exception) {
+                    result.error("GET_RESPONSE_FAILED", e.message, null)
+                }
+            }
+        } catch (e: Exception) {
+            result.error("INVALID_ARGUMENT", e.message, null)
+        }
+    }
+
+    private fun handleCancelRequest(call: MethodCall, result: MethodChannel.Result) {
+        try {
+            @Suppress("UNCHECKED_CAST")
+            val args = call.arguments as? Map<*, *>
+                ?: run {
+                    result.error("INVALID_ARGUMENT", "Request ID is required", null)
+                    return
+                }
+
+            val requestId = args["requestId"] as? String
+                ?: run {
+                    result.error("INVALID_ARGUMENT", "Request ID is required", null)
+                    return
+                }
+
+            scope.launch {
+                try {
+                    val cancelled = withContext(Dispatchers.IO) {
+                        cancelRequestUseCase(requestId)
+                    }
+                    result.success(cancelled)
+                } catch (e: Exception) {
+                    result.error("CANCEL_REQUEST_FAILED", e.message, null)
+                }
+            }
+        } catch (e: Exception) {
+            result.error("INVALID_ARGUMENT", e.message, null)
+        }
+    }
+
+    private fun handleDeleteRequest(call: MethodCall, result: MethodChannel.Result) {
+        try {
+            @Suppress("UNCHECKED_CAST")
+            val args = call.arguments as? Map<*, *>
+                ?: run {
+                    result.error("INVALID_ARGUMENT", "Request ID is required", null)
+                    return
+                }
+
+            val requestId = args["requestId"] as? String
+                ?: run {
+                    result.error("INVALID_ARGUMENT", "Request ID is required", null)
+                    return
+                }
+
+            scope.launch {
+                try {
+                    val deleted = withContext(Dispatchers.IO) {
+                        deleteRequestUseCase(requestId)
+                    }
+                    result.success(deleted)
+                } catch (e: Exception) {
+                    result.error("DELETE_REQUEST_FAILED", e.message, null)
+                }
+            }
+        } catch (e: Exception) {
+            result.error("INVALID_ARGUMENT", e.message, null)
+        }
+    }
+}
+
