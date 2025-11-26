@@ -34,7 +34,59 @@ class TaskRepositoryImpl(
     }
 
     override suspend fun getTaskInfo(requestId: String): TaskInfo? {
-        return fileStorage.loadTaskInfo(requestId)
+        // Загружаем информацию о задаче из файла
+        var taskInfo = fileStorage.loadTaskInfo(requestId) ?: return null
+        
+        // Если статус IN_PROGRESS, проверяем актуальное состояние
+        if (taskInfo.status == RequestStatus.IN_PROGRESS) {
+            // Сначала проверяем наличие файла ответа - это быстрее, чем проверка WorkManager
+            // Если файл ответа существует, значит запрос завершен
+            val responseTaskInfo = fileStorage.loadTaskResponse(requestId)
+            if (responseTaskInfo != null && responseTaskInfo.responseJson != null) {
+                // Файл ответа существует, значит запрос завершен
+                // Обновляем статус из ответа
+                val responseStatus = responseTaskInfo.responseJson["status"] as? Int
+                if (responseStatus != null) {
+                    val status = enumValues<RequestStatus>().firstOrNull { it.value == responseStatus }
+                    if (status != null && status != RequestStatus.IN_PROGRESS) {
+                        // Обновляем статус в файле статуса для консистентности
+                        fileStorage.saveStatus(requestId, status)
+                        // Возвращаем обновленную информацию
+                        taskInfo = taskInfo.copy(status = status)
+                    }
+                }
+            } else {
+                // Если файла ответа нет, проверяем состояние в WorkManager
+                // Это поможет определить, завершена ли задача, но файл ответа еще не записан
+                // Используем кэширование для оптимизации при большом количестве запросов
+                val workState = workManager.getWorkState(requestId, forceRefresh = false)
+                when (workState) {
+                    WorkManagerDataSource.WorkStateResult.SUCCEEDED -> {
+                        // WorkManager сообщает, что задача завершена успешно,
+                        // но файл ответа еще не создан - возможно, он еще записывается.
+                        // В этом случае оставляем статус IN_PROGRESS, чтобы при следующем вызове
+                        // файл ответа уже был доступен и статус обновится из него
+                    }
+                    WorkManagerDataSource.WorkStateResult.FAILED -> {
+                        // WorkManager сообщает, что задача завершена с ошибкой
+                        // Обновляем статус
+                        fileStorage.saveStatus(requestId, RequestStatus.FAILED)
+                        taskInfo = taskInfo.copy(status = RequestStatus.FAILED)
+                    }
+                    WorkManagerDataSource.WorkStateResult.IN_PROGRESS -> {
+                        // Задача действительно выполняется в WorkManager
+                        // Статус IN_PROGRESS в файле корректный, ничего не делаем
+                    }
+                    WorkManagerDataSource.WorkStateResult.NOT_FOUND -> {
+                        // Задача не найдена в WorkManager
+                        // Это может означать, что задача была удалена или еще не запущена
+                        // Оставляем статус как есть (IN_PROGRESS из файла)
+                    }
+                }
+            }
+        }
+        
+        return taskInfo
     }
 
     override suspend fun getTaskResponse(requestId: String): TaskInfo? {
