@@ -1,6 +1,6 @@
 name: background_http_client
 description: "A Flutter plugin for background HTTP client operations with Dio-like interface"
-version: 0.0.4
+version: 0.0.5
 publish_to: "none"
 
 environment:
