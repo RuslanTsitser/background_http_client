@@ -68,4 +68,11 @@ abstract class BackgroundHttpClientPlatform extends PlatformInterface {
   Future<bool?> deleteRequest(String requestId) {
     throw UnimplementedError('deleteRequest() has not been implemented.');
   }
+
+  /// Получает stream с ID завершенных задач
+  ///
+  /// Возвращает Stream<String> с ID задач, которые были успешно завершены (HTTP статус 200-299)
+  Stream<String> getCompletedTasksStream() {
+    throw UnimplementedError('getCompletedTasksStream() has not been implemented.');
+  }
 }

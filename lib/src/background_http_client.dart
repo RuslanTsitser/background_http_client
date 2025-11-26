@@ -388,4 +388,12 @@ class BackgroundHttpClient {
   Future<bool?> deleteRequest(String requestId) async {
     return await _platform.deleteRequest(requestId);
   }
+
+  /// Получает stream с ID завершенных задач
+  ///
+  /// Возвращает Stream<String> с ID задач, которые были успешно завершены
+  /// Каждый раз, когда задача успешно завершается (HTTP статус 200-299), в stream отправляется её ID
+  Stream<String> getCompletedTasksStream() {
+    return _platform.getCompletedTasksStream();
+  }
 }

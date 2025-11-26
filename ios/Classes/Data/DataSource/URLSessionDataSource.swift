@@ -109,6 +109,9 @@ class URLSessionDataSource {
                     detailedError = errorDescription
                 }
                 
+                // Проверяем, является ли это ошибкой отсутствия интернета
+                let isNoInternetError = (error as? URLError)?.code == .notConnectedToInternet
+                
                 // Сохраняем ошибку
                 try? fileStorage.saveResponse(
                     requestId: requestId,
@@ -120,24 +123,51 @@ class URLSessionDataSource {
                     error: detailedError
                 )
                 
+                // Не отправляем событие при ошибках - только при успешном завершении
+                
                 // Если это сетевая ошибка и есть попытки, повторяем
+                // НО: при отсутствии интернета не тратим попытки - ждем появления интернета
                 if isNetworkError && retries > 0 {
-                    Task {
-                        try? await Task.sleep(nanoseconds: 30_000_000_000) // 30 секунд
-                        if !self.cancelledRequestIds.contains(requestId) {
-                            try? await self.executeRequest(
-                                requestId: requestId,
-                                url: url,
-                                method: method,
-                                headers: headers,
-                                body: body,
-                                queryParameters: queryParameters,
-                                timeout: timeout,
-                                multipartFields: multipartFields,
-                                multipartFiles: multipartFiles,
-                                retries: retries - 1,
-                                fileStorage: fileStorage
-                            )
+                    if isNoInternetError {
+                        // При отсутствии интернета не тратим попытки, просто ждем
+                        // Повторяем с теми же retries
+                        Task {
+                            try? await Task.sleep(nanoseconds: 30_000_000_000) // 30 секунд
+                            if !self.cancelledRequestIds.contains(requestId) {
+                                try? await self.executeRequest(
+                                    requestId: requestId,
+                                    url: url,
+                                    method: method,
+                                    headers: headers,
+                                    body: body,
+                                    queryParameters: queryParameters,
+                                    timeout: timeout,
+                                    multipartFields: multipartFields,
+                                    multipartFiles: multipartFiles,
+                                    retries: retries, // Не уменьшаем retries при отсутствии интернета
+                                    fileStorage: fileStorage
+                                )
+                            }
+                        }
+                    } else {
+                        // При других сетевых ошибках тратим попытки
+                        Task {
+                            try? await Task.sleep(nanoseconds: 30_000_000_000) // 30 секунд
+                            if !self.cancelledRequestIds.contains(requestId) {
+                                try? await self.executeRequest(
+                                    requestId: requestId,
+                                    url: url,
+                                    method: method,
+                                    headers: headers,
+                                    body: body,
+                                    queryParameters: queryParameters,
+                                    timeout: timeout,
+                                    multipartFields: multipartFields,
+                                    multipartFiles: multipartFiles,
+                                    retries: retries - 1, // Уменьшаем retries при других ошибках
+                                    fileStorage: fileStorage
+                                )
+                            }
                         }
                     }
                 }
@@ -154,6 +184,7 @@ class URLSessionDataSource {
                     status: .failed,
                     error: "Invalid response: response is not HTTPURLResponse"
                 )
+                // Не отправляем событие при ошибках - только при успешном завершении
                 return
             }
             
@@ -196,6 +227,11 @@ class URLSessionDataSource {
                 status: status,
                 error: status == .failed ? (responseBody ?? "Request failed") : nil
             )
+            
+            // Отправляем событие только при успешном завершении
+            if status == .completed {
+                TaskCompletedEventStreamHandler.shared.sendCompletedTask(requestId: requestId)
+            }
             
             // Очищаем из множества отмененных запросов
             self.cancelledRequestIds.remove(requestId)

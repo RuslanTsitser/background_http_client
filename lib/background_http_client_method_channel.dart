@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
@@ -8,6 +10,10 @@ class MethodChannelBackgroundHttpClient extends BackgroundHttpClientPlatform {
   /// Method channel для взаимодействия с нативной платформой
   @visibleForTesting
   final methodChannel = const MethodChannel('background_http_client');
+
+  /// Event channel для получения событий о завершенных задачах
+  @visibleForTesting
+  final eventChannel = const EventChannel('background_http_client/task_completed');
 
   @override
   Future<Map<String, dynamic>> createRequest(Map<String, dynamic> requestJson) async {
@@ -96,5 +102,10 @@ class MethodChannelBackgroundHttpClient extends BackgroundHttpClientPlatform {
       }
       rethrow;
     }
+  }
+
+  @override
+  Stream<String> getCompletedTasksStream() {
+    return eventChannel.receiveBroadcastStream().cast<String>();
   }
 }

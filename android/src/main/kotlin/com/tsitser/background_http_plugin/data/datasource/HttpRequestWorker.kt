@@ -5,6 +5,7 @@ import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.tsitser.background_http_plugin.domain.entity.RequestStatus
+import com.tsitser.background_http_plugin.presentation.handler.TaskCompletedEventStreamHandler
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -150,6 +151,11 @@ class HttpRequestWorker(
                 error = if (status == RequestStatus.FAILED) responseBody ?: "Request failed" else null
             )
 
+            // Отправляем событие только при успешном завершении
+            if (status == RequestStatus.COMPLETED) {
+                sendTaskCompletedEvent(requestId)
+            }
+
             Result.success()
         } catch (e: CancellationException) {
             // Отмена задачи - это нормальное поведение, не ошибка
@@ -157,6 +163,20 @@ class HttpRequestWorker(
             throw e
         } catch (e: Exception) {
             Log.e(TAG, "Error executing request $requestId", e)
+            
+            // Проверяем, является ли это сетевой ошибкой, которая может быть повторена
+            val isNetworkError = e is java.net.UnknownHostException ||
+                    e is java.net.ConnectException ||
+                    e is java.net.SocketTimeoutException ||
+                    e is javax.net.ssl.SSLException ||
+                    (e is java.io.IOException && e.message?.contains("network", ignoreCase = true) == true)
+            
+            // Проверяем, является ли это ошибкой отсутствия интернета
+            // При отсутствии интернета WorkManager сам будет ждать появления интернета
+            // благодаря ограничению NetworkType.CONNECTED, поэтому не нужно тратить retries
+            val isNoInternetError = e is java.net.UnknownHostException ||
+                    (e is java.net.ConnectException && e.message?.contains("Network is unreachable", ignoreCase = true) == true)
+            
             fileStorage.saveStatus(requestId, RequestStatus.FAILED)
             fileStorage.saveResponse(
                 requestId = requestId,
@@ -167,7 +187,18 @@ class HttpRequestWorker(
                 status = RequestStatus.FAILED,
                 error = e.message ?: "Unknown error"
             )
-            Result.retry() // WorkManager автоматически повторит при сетевых ошибках
+            
+            // Не отправляем событие при ошибках - только при успешном завершении
+            
+            // При сетевых ошибках WorkManager будет повторять задачу
+            // WorkManager имеет ограничение NetworkType.CONNECTED, поэтому при отсутствии интернета
+            // задача будет ждать появления интернета без траты попыток WorkManager
+            // Параметр retries из запроса не используется для ограничения попыток WorkManager
+            if (isNetworkError) {
+                Result.retry() // WorkManager автоматически повторит при сетевых ошибках
+            } else {
+                Result.failure() // Задача завершена с ошибкой, повтор не требуется
+            }
         }
     }
 
@@ -246,6 +277,18 @@ class HttpRequestWorker(
             )
         }
         return list
+    }
+    
+    /**
+     * Отправляет событие о завершенной задаче через EventChannel
+     */
+    private fun sendTaskCompletedEvent(requestId: String) {
+        try {
+            val eventHandler = TaskCompletedEventStreamHandler.getInstance(applicationContext)
+            eventHandler.sendCompletedTask(requestId)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error sending task completed event for $requestId", e)
+        }
     }
 }
 
