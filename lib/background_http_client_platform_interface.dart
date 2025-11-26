@@ -9,8 +9,7 @@ abstract class BackgroundHttpClientPlatform extends PlatformInterface {
 
   static final Object _token = Object();
 
-  static BackgroundHttpClientPlatform _instance =
-      MethodChannelBackgroundHttpClient();
+  static BackgroundHttpClientPlatform _instance = MethodChannelBackgroundHttpClient();
 
   /// Экземпляр [BackgroundHttpClientPlatform] по умолчанию
   ///
@@ -30,10 +29,8 @@ abstract class BackgroundHttpClientPlatform extends PlatformInterface {
   /// [requestJson] - JSON представление [HttpRequest]
   ///
   /// Возвращает JSON с [RequestInfo] (requestId и requestFilePath)
-  Future<Map<String, dynamic>> executeRequest(
-      Map<String, dynamic> requestJson) {
-    throw UnimplementedError(
-        'executeRequest() has not been implemented.');
+  Future<Map<String, dynamic>> executeRequest(Map<String, dynamic> requestJson) {
+    throw UnimplementedError('executeRequest() has not been implemented.');
   }
 
   /// Получает статус запроса по ID
@@ -42,8 +39,7 @@ abstract class BackgroundHttpClientPlatform extends PlatformInterface {
   ///
   /// Возвращает индекс статуса в enum [RequestStatus] или null, если запрос не найден
   Future<int?> getRequestStatus(String requestId) {
-    throw UnimplementedError(
-        'getRequestStatus() has not been implemented.');
+    throw UnimplementedError('getRequestStatus() has not been implemented.');
   }
 
   /// Получает ответ от сервера по ID запроса
@@ -67,14 +63,5 @@ abstract class BackgroundHttpClientPlatform extends PlatformInterface {
   /// [requestId] - ID запроса для удаления
   Future<void> deleteRequest(String requestId) {
     throw UnimplementedError('deleteRequest() has not been implemented.');
-  }
-}
-
-/// Устаревший метод, оставлен для обратной совместимости
-@Deprecated('Use BackgroundHttpClient methods instead')
-extension BackgroundHttpClientDeprecated on BackgroundHttpClientPlatform {
-  Future<String?> getPlatformVersion() {
-    throw UnimplementedError(
-        'getPlatformVersion() has been deprecated. Use BackgroundHttpClient methods instead.');
   }
 }
