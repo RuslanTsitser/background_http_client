@@ -35,5 +35,25 @@ interface TaskRepository {
      * @return true если задача удалена, false если не получилось, null если задачи не существует
      */
     suspend fun deleteTask(requestId: String): Boolean?
+
+    /**
+     * Получает список задач в ожидании с датами регистрации
+     * @return список задач в ожидании
+     */
+    suspend fun getPendingTasks(): List<PendingTask>
+
+    /**
+     * Отменяет все задачи
+     * @return количество отмененных задач
+     */
+    suspend fun cancelAllTasks(): Int
 }
+
+/**
+ * Информация о задаче в ожидании
+ */
+data class PendingTask(
+    val requestId: String,
+    val registrationDate: Long
+)
 

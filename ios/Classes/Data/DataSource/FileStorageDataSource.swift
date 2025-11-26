@@ -86,14 +86,15 @@ class FileStorageDataSource {
         }
         
         let status = loadStatus(requestId: requestId) ?? .inProgress
-        let registrationDate: Int64
-        
-        if let attributes = try? FileManager.default.attributesOfItem(atPath: requestFile.path),
-           let modificationDate = attributes[.modificationDate] as? Date {
-            registrationDate = Int64(modificationDate.timeIntervalSince1970 * 1000)
-        } else {
-            registrationDate = Int64(Date().timeIntervalSince1970 * 1000)
-        }
+        // Получаем дату регистрации из файла статуса, если она там есть, иначе используем lastModified
+        let registrationDate = loadRegistrationDate(requestId: requestId) ?? {
+            if let attributes = try? FileManager.default.attributesOfItem(atPath: requestFile.path),
+               let modificationDate = attributes[.modificationDate] as? Date {
+                return Int64(modificationDate.timeIntervalSince1970 * 1000)
+            } else {
+                return Int64(Date().timeIntervalSince1970 * 1000)
+            }
+        }()
         
         return TaskInfo(
             id: requestId,
@@ -102,6 +103,18 @@ class FileStorageDataSource {
             registrationDate: registrationDate,
             responseJson: nil
         )
+    }
+    
+    /// Загружает дату регистрации из файла статуса
+    private func loadRegistrationDate(requestId: String) -> Int64? {
+        let statusFile = statusDir.appendingPathComponent("\(requestId).json")
+        guard FileManager.default.fileExists(atPath: statusFile.path),
+              let data = try? Data(contentsOf: statusFile),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let startTime = json["startTime"] as? Int64 else {
+            return nil
+        }
+        return startTime
     }
     
     /// Загружает ответ задачи
@@ -222,6 +235,16 @@ class FileStorageDataSource {
     func taskExists(requestId: String) -> Bool {
         let requestFile = requestsDir.appendingPathComponent("\(requestId).json")
         return FileManager.default.fileExists(atPath: requestFile.path)
+    }
+    
+    /// Получает список всех ID задач из файловой системы
+    func getAllTaskIds() -> [String] {
+        guard let files = try? FileManager.default.contentsOfDirectory(at: requestsDir, includingPropertiesForKeys: nil) else {
+            return []
+        }
+        return files
+            .filter { $0.pathExtension == "json" }
+            .map { $0.deletingPathExtension().lastPathComponent }
     }
 }
 

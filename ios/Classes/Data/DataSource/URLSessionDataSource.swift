@@ -317,5 +317,22 @@ class URLSessionDataSource {
     private func saveLargeResponseToFile(requestId: String, data: Data) -> String {
         return saveResponseToFile(requestId: requestId, data: data)
     }
+    
+    /// Проверяет, находится ли задача в ожидании
+    func isTaskPending(requestId: String) -> Bool {
+        return activeTasks[requestId] != nil
+    }
+    
+    /// Отменяет все задачи
+    /// Возвращает количество отмененных задач
+    func cancelAllTasks() -> Int {
+        let count = activeTasks.count
+        for (requestId, task) in activeTasks {
+            task.cancel()
+            cancelledRequestIds.insert(requestId)
+        }
+        activeTasks.removeAll()
+        return count
+    }
 }
 

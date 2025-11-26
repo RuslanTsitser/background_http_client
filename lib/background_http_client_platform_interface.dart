@@ -75,4 +75,18 @@ abstract class BackgroundHttpClientPlatform extends PlatformInterface {
   Stream<String> getCompletedTasksStream() {
     throw UnimplementedError('getCompletedTasksStream() has not been implemented.');
   }
+
+  /// Получает список задач в ожидании с датами добавления
+  ///
+  /// Возвращает список [PendingTask] с ID задач и датами их регистрации
+  Future<List<Map<String, dynamic>>> getPendingTasks() {
+    throw UnimplementedError('getPendingTasks() has not been implemented.');
+  }
+
+  /// Отменяет все задачи
+  ///
+  /// Возвращает количество отмененных задач
+  Future<int> cancelAllTasks() {
+    throw UnimplementedError('cancelAllTasks() has not been implemented.');
+  }
 }

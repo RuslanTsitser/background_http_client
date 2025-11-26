@@ -31,6 +31,10 @@ class MethodCallHandler {
             handleCancelRequest(call: call, result: result)
         case "deleteRequest":
             handleDeleteRequest(call: call, result: result)
+        case "getPendingTasks":
+            handleGetPendingTasks(call: call, result: result)
+        case "cancelAllTasks":
+            handleCancelAllTasks(call: call, result: result)
         default:
             result(FlutterMethodNotImplemented)
         }
@@ -128,6 +132,34 @@ class MethodCallHandler {
                 result(deleted)
             } catch {
                 result(FlutterError(code: "DELETE_REQUEST_FAILED", message: error.localizedDescription, details: nil))
+            }
+        }
+    }
+    
+    private func handleGetPendingTasks(call: FlutterMethodCall, result: @escaping FlutterResult) {
+        Task {
+            do {
+                let pendingTasks = try await repository.getPendingTasks()
+                let response = pendingTasks.map { task in
+                    [
+                        "requestId": task.requestId,
+                        "registrationDate": task.registrationDate
+                    ]
+                }
+                result(response)
+            } catch {
+                result(FlutterError(code: "GET_PENDING_TASKS_FAILED", message: error.localizedDescription, details: nil))
+            }
+        }
+    }
+    
+    private func handleCancelAllTasks(call: FlutterMethodCall, result: @escaping FlutterResult) {
+        Task {
+            do {
+                let count = try await repository.cancelAllTasks()
+                result(count)
+            } catch {
+                result(FlutterError(code: "CANCEL_ALL_TASKS_FAILED", message: error.localizedDescription, details: nil))
             }
         }
     }

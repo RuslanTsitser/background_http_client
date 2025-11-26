@@ -7,6 +7,7 @@ import com.tsitser.background_http_plugin.data.mapper.RequestMapper
 import com.tsitser.background_http_plugin.domain.entity.HttpRequest
 import com.tsitser.background_http_plugin.domain.entity.RequestStatus
 import com.tsitser.background_http_plugin.domain.entity.TaskInfo
+import com.tsitser.background_http_plugin.domain.repository.PendingTask
 import com.tsitser.background_http_plugin.domain.repository.TaskRepository
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -169,6 +170,42 @@ class TaskRepositoryImpl(
         } catch (e: Exception) {
             false
         }
+    }
+
+    override suspend fun getPendingTasks(): List<PendingTask> {
+        val pendingTasks = mutableListOf<PendingTask>()
+        
+        // Получаем все задачи из файловой системы
+        val allTaskIds = fileStorage.getAllTaskIds()
+        
+        for (requestId in allTaskIds) {
+            // Проверяем, что статус в файле IN_PROGRESS (не завершена)
+            val taskInfo = fileStorage.loadTaskInfo(requestId)
+            if (taskInfo != null && taskInfo.status == RequestStatus.IN_PROGRESS) {
+                // Проверяем, что нет ответа (задача еще не завершена)
+                val response = fileStorage.loadTaskResponse(requestId)
+                if (response == null || response.responseJson == null) {
+                    // Добавляем задачу в список pending, если:
+                    // 1. Есть активная задача в WorkManager (ENQUEUED, RUNNING или BLOCKED)
+                    // 2. ИЛИ задачи нет в WorkManager, но статус IN_PROGRESS - значит она зависла
+                    // (в этом случае она все равно считается pending, так как не завершена)
+                    val hasActiveWork = workManager.hasActiveWork(requestId)
+                    // Если задачи нет в WorkManager, но статус IN_PROGRESS - это зависшая задача
+                    // Ее тоже нужно считать pending, так как она не завершена
+                    // Добавляем задачу, если она активна в WorkManager ИЛИ если ее нет в WorkManager (зависла)
+                    pendingTasks.add(PendingTask(
+                        requestId = requestId,
+                        registrationDate = taskInfo.registrationDate
+                    ))
+                }
+            }
+        }
+        
+        return pendingTasks
+    }
+
+    override suspend fun cancelAllTasks(): Int {
+        return workManager.cancelAllTasks()
     }
 }
 

@@ -108,4 +108,35 @@ class MethodChannelBackgroundHttpClient extends BackgroundHttpClientPlatform {
   Stream<String> getCompletedTasksStream() {
     return eventChannel.receiveBroadcastStream().cast<String>();
   }
+
+  @override
+  Future<List<Map<String, dynamic>>> getPendingTasks() async {
+    try {
+      final result = await methodChannel.invokeMethod<List<Object?>>('getPendingTasks');
+      if (result == null) {
+        return [];
+      }
+      return result.map((item) => Map<String, dynamic>.from(item as Map<Object?, Object?>)).toList();
+    } on PlatformException catch (e) {
+      throw PlatformException(
+        code: e.code,
+        message: e.message,
+        details: e.details,
+      );
+    }
+  }
+
+  @override
+  Future<int> cancelAllTasks() async {
+    try {
+      final result = await methodChannel.invokeMethod<int>('cancelAllTasks');
+      return result ?? 0;
+    } on PlatformException catch (e) {
+      throw PlatformException(
+        code: e.code,
+        message: e.message,
+        details: e.details,
+      );
+    }
+  }
 }

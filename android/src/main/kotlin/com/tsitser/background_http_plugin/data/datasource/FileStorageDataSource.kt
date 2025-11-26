@@ -102,7 +102,8 @@ class FileStorageDataSource(private val context: Context) {
         }
 
         val status = loadStatus(requestId) ?: RequestStatus.IN_PROGRESS
-        val registrationDate = requestFile.lastModified()
+        // Получаем дату регистрации из файла статуса, если она там есть, иначе используем lastModified
+        val registrationDate = loadRegistrationDate(requestId) ?: requestFile.lastModified()
 
         return TaskInfo(
             id = requestId,
@@ -110,6 +111,28 @@ class FileStorageDataSource(private val context: Context) {
             path = requestFile.absolutePath,
             registrationDate = registrationDate
         )
+    }
+
+    /**
+     * Загружает дату регистрации из файла статуса
+     */
+    private fun loadRegistrationDate(requestId: String): Long? {
+        val statusFile = File(statusDir, "$requestId.json")
+        if (!statusFile.exists()) {
+            return null
+        }
+
+        return try {
+            val jsonString = statusFile.readText()
+            val json = JSONObject(jsonString)
+            if (json.has("startTime")) {
+                json.getLong("startTime")
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            null
+        }
     }
 
     /**
@@ -225,6 +248,16 @@ class FileStorageDataSource(private val context: Context) {
      */
     fun taskExists(requestId: String): Boolean {
         return File(requestsDir, "$requestId.json").exists()
+    }
+
+    /**
+     * Получает список всех ID задач из файловой системы
+     */
+    fun getAllTaskIds(): List<String> {
+        return requestsDir.listFiles()
+            ?.filter { it.isFile && it.name.endsWith(".json") }
+            ?.map { it.name.removeSuffix(".json") }
+            ?: emptyList()
     }
 
     /**

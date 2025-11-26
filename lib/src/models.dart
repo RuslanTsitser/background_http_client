@@ -107,27 +107,21 @@ class HttpRequest {
       multipartFiles = {};
       final filesMap = json['multipartFiles'] as Map<dynamic, dynamic>;
       filesMap.forEach((key, value) {
-        multipartFiles![key as String] =
-            MultipartFile.fromJson(value as Map<String, dynamic>);
+        multipartFiles![key as String] = MultipartFile.fromJson(value as Map<String, dynamic>);
       });
     }
 
     return HttpRequest(
       url: json['url'] as String,
       method: json['method'] as String,
-      headers: json['headers'] != null
-          ? Map<String, String>.from(
-              json['headers'] as Map<dynamic, dynamic>)
-          : null,
+      headers: json['headers'] != null ? Map<String, String>.from(json['headers'] as Map<dynamic, dynamic>) : null,
       body: json['body'] as String?,
       queryParameters: json['queryParameters'] != null
-          ? Map<String, dynamic>.from(
-              json['queryParameters'] as Map<dynamic, dynamic>)
+          ? Map<String, dynamic>.from(json['queryParameters'] as Map<dynamic, dynamic>)
           : null,
       timeout: json['timeout'] as int?,
       multipartFields: json['multipartFields'] != null
-          ? Map<String, String>.from(
-              json['multipartFields'] as Map<dynamic, dynamic>)
+          ? Map<String, String>.from(json['multipartFields'] as Map<dynamic, dynamic>)
           : null,
       multipartFiles: multipartFiles,
       requestId: json['requestId'] as String?,
@@ -203,8 +197,7 @@ class HttpResponse {
       requestId: json['requestId'] as String,
       statusCode: json['statusCode'] as int,
       headers: json['headers'] != null
-          ? Map<String, String>.from(
-              json['headers'] as Map<dynamic, dynamic>)
+          ? Map<String, String>.from(json['headers'] as Map<dynamic, dynamic>)
           : <String, String>{},
       body: json['body'] as String?,
       responseFilePath: json['responseFilePath'] as String?,
@@ -290,8 +283,7 @@ class TaskInfo {
       path: json['path'] as String,
       registrationDate: json['registrationDate'] as int,
       responseJson: json['responseJson'] != null
-          ? Map<String, dynamic>.from(
-              json['responseJson'] as Map<dynamic, dynamic>)
+          ? Map<String, dynamic>.from(json['responseJson'] as Map<dynamic, dynamic>)
           : null,
     );
   }
@@ -311,7 +303,38 @@ class TaskInfo {
   RequestStatus get statusEnum => RequestStatus.values[status];
 
   /// Получает дату регистрации как DateTime
-  DateTime get registrationDateTime =>
-      DateTime.fromMillisecondsSinceEpoch(registrationDate);
+  DateTime get registrationDateTime => DateTime.fromMillisecondsSinceEpoch(registrationDate);
 }
 
+/// Информация о задаче в ожидании
+class PendingTask {
+  /// Уникальный ID задачи
+  final String requestId;
+
+  /// Дата регистрации задачи (timestamp в миллисекундах)
+  final int registrationDate;
+
+  PendingTask({
+    required this.requestId,
+    required this.registrationDate,
+  });
+
+  /// Создает объект из JSON
+  factory PendingTask.fromJson(Map<String, dynamic> json) {
+    return PendingTask(
+      requestId: json['requestId'] as String,
+      registrationDate: json['registrationDate'] as int,
+    );
+  }
+
+  /// Преобразует объект в JSON
+  Map<String, dynamic> toJson() {
+    return {
+      'requestId': requestId,
+      'registrationDate': registrationDate,
+    };
+  }
+
+  /// Получает дату регистрации как DateTime
+  DateTime get registrationDateTime => DateTime.fromMillisecondsSinceEpoch(registrationDate);
+}

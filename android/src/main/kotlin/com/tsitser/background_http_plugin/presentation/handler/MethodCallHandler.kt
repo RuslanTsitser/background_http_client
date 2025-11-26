@@ -33,6 +33,8 @@ class MethodCallHandler(private val context: Context) : MethodChannel.MethodCall
             "getResponse" -> handleGetResponse(call, result)
             "cancelRequest" -> handleCancelRequest(call, result)
             "deleteRequest" -> handleDeleteRequest(call, result)
+            "getPendingTasks" -> handleGetPendingTasks(call, result)
+            "cancelAllTasks" -> handleCancelAllTasks(call, result)
             else -> result.notImplemented()
         }
     }
@@ -192,6 +194,40 @@ class MethodCallHandler(private val context: Context) : MethodChannel.MethodCall
             }
         } catch (e: Exception) {
             result.error("INVALID_ARGUMENT", e.message, null)
+        }
+    }
+
+    private fun handleGetPendingTasks(call: MethodCall, result: MethodChannel.Result) {
+        scope.launch {
+            try {
+                val pendingTasks = withContext(Dispatchers.IO) {
+                    repository.getPendingTasks()
+                }
+                val response = pendingTasks.map { task ->
+                    mapOf(
+                        "requestId" to task.requestId,
+                        "registrationDate" to task.registrationDate
+                    )
+                }
+                result.success(response)
+            } catch (e: Exception) {
+                android.util.Log.e("MethodCallHandler", "Error getting pending tasks", e)
+                result.error("GET_PENDING_TASKS_FAILED", e.message, null)
+            }
+        }
+    }
+
+    private fun handleCancelAllTasks(call: MethodCall, result: MethodChannel.Result) {
+        scope.launch {
+            try {
+                val count = withContext(Dispatchers.IO) {
+                    repository.cancelAllTasks()
+                }
+                result.success(count)
+            } catch (e: Exception) {
+                android.util.Log.e("MethodCallHandler", "Error cancelling all tasks", e)
+                result.error("CANCEL_ALL_TASKS_FAILED", e.message, null)
+            }
         }
     }
 }

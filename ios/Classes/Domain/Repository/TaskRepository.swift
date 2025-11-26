@@ -16,5 +16,18 @@ protocol TaskRepository {
     
     /// Удаляет задачу и все связанные файлы по ID
     func deleteTask(requestId: String) async throws -> Bool?
+    
+    /// Получает список задач в ожидании с датами регистрации
+    func getPendingTasks() async throws -> [PendingTask]
+    
+    /// Отменяет все задачи
+    /// Возвращает количество отмененных задач
+    func cancelAllTasks() async throws -> Int
+}
+
+/// Информация о задаче в ожидании
+struct PendingTask {
+    let requestId: String
+    let registrationDate: Int64
 }
 

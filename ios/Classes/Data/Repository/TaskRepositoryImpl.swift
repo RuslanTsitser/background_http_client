@@ -112,5 +112,33 @@ actor TaskRepositoryImpl: TaskRepository {
             return false
         }
     }
+    
+    func getPendingTasks() async throws -> [PendingTask] {
+        // Получаем все задачи из файловой системы
+        let allTaskIds = fileStorage.getAllTaskIds()
+        var pendingTasks: [PendingTask] = []
+        
+        for requestId in allTaskIds {
+            // Проверяем, что задача в ожидании или выполняется
+            // (статус IN_PROGRESS и задача активна в URLSession)
+            if let taskInfo = try await getTaskInfo(requestId: requestId),
+               taskInfo.status == .inProgress {
+                // Проверяем, есть ли активная задача в URLSession
+                // (включая задачи в ожидании и выполняющиеся)
+                if urlSession.isTaskPending(requestId: requestId) {
+                    pendingTasks.append(PendingTask(
+                        requestId: requestId,
+                        registrationDate: taskInfo.registrationDate
+                    ))
+                }
+            }
+        }
+        
+        return pendingTasks
+    }
+    
+    func cancelAllTasks() async throws -> Int {
+        return urlSession.cancelAllTasks()
+    }
 }
 

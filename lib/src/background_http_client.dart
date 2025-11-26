@@ -396,4 +396,19 @@ class BackgroundHttpClient {
   Stream<String> getCompletedTasksStream() {
     return _platform.getCompletedTasksStream();
   }
+
+  /// Получает список задач в ожидании с датами добавления
+  ///
+  /// Возвращает список [PendingTask] с ID задач и датами их регистрации
+  Future<List<PendingTask>> getPendingTasks() async {
+    final result = await _platform.getPendingTasks();
+    return result.map((json) => PendingTask.fromJson(json)).toList();
+  }
+
+  /// Отменяет все задачи
+  ///
+  /// Возвращает количество отмененных задач
+  Future<int> cancelAllTasks() async {
+    return await _platform.cancelAllTasks();
+  }
 }

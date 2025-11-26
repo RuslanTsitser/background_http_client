@@ -161,5 +161,51 @@ class WorkManagerDataSource(private val context: Context) {
     fun clearWorkStateCache() {
         workStateCache.clear()
     }
+
+    /**
+     * Получает все задачи в ожидании (ENQUEUED) для указанного requestId
+     */
+    suspend fun getEnqueuedWorkInfo(requestId: String): WorkInfo? {
+        return try {
+            val workInfosFuture: ListenableFuture<List<WorkInfo>> = workManager.getWorkInfosByTag("request_$requestId")
+            val workInfos = workInfosFuture.get()
+            workInfos.firstOrNull { it.state == WorkInfo.State.ENQUEUED }
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    /**
+     * Проверяет, есть ли активная задача (ENQUEUED или RUNNING) для указанного requestId
+     */
+    suspend fun hasActiveWork(requestId: String): Boolean {
+        return try {
+            val workInfosFuture: ListenableFuture<List<WorkInfo>> = workManager.getWorkInfosByTag("request_$requestId")
+            val workInfos = workInfosFuture.get()
+            workInfos.any { 
+                it.state == WorkInfo.State.ENQUEUED || 
+                it.state == WorkInfo.State.RUNNING ||
+                it.state == WorkInfo.State.BLOCKED
+            }
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    /**
+     * Отменяет все задачи
+     * @return количество отмененных задач (всегда 0, так как точное количество неизвестно)
+     */
+    suspend fun cancelAllTasks(): Int {
+        return try {
+            // Отменяем все задачи
+            workManager.cancelAllWork()
+            // Возвращаем 0, так как мы не можем точно посчитать количество отмененных задач
+            // без предварительного получения списка всех задач
+            0
+        } catch (e: Exception) {
+            0
+        }
+    }
 }
 
