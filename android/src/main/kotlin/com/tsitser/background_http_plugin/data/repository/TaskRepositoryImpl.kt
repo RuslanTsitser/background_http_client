@@ -1,6 +1,7 @@
 package com.tsitser.background_http_plugin.data.repository
 
 import android.content.Context
+import androidx.work.WorkInfo
 import com.tsitser.background_http_plugin.data.datasource.FileStorageDataSource
 import com.tsitser.background_http_plugin.data.datasource.WorkManagerDataSource
 import com.tsitser.background_http_plugin.data.mapper.RequestMapper
@@ -108,9 +109,9 @@ class TaskRepositoryImpl(
                 }
             } else {
                 // Если файла ответа нет, проверяем состояние в WorkManager
-                // Это поможет определить, завершена ли задача, но файл ответа еще не записан
-                // Используем кэширование для оптимизации при большом количестве запросов
-                val workState = workManager.getWorkState(requestId, forceRefresh = false)
+                // Используем forceRefresh для получения актуального состояния
+                val (workState, workInfoState) = workManager.getDetailedWorkState(requestId)
+                
                 when (workState) {
                     WorkManagerDataSource.WorkStateResult.SUCCEEDED -> {
                         // WorkManager сообщает, что задача завершена успешно,
@@ -125,13 +126,50 @@ class TaskRepositoryImpl(
                         taskInfo = taskInfo.copy(status = RequestStatus.FAILED)
                     }
                     WorkManagerDataSource.WorkStateResult.IN_PROGRESS -> {
+                        // Проверяем, не зависла ли задача
+                        // Задача считается зависшей, если она в ENQUEUED или BLOCKED дольше queueTimeout
+                        if (workInfoState == WorkInfo.State.ENQUEUED || workInfoState == WorkInfo.State.BLOCKED) {
+                            val queueTimeout = fileStorage.loadQueueTimeout(requestId)
+                            val currentTime = System.currentTimeMillis()
+                            val taskAge = currentTime - taskInfo.registrationDate
+                            
+                            // Если задача зависла дольше queueTimeout, пересоздаем её
+                            if (taskAge > queueTimeout * 1000L) {
+                                android.util.Log.w("TaskRepositoryImpl", "Task $requestId is stuck in ${workInfoState} for ${taskAge}ms, recreating...")
+                                // Отменяем старую задачу
+                                workManager.cancelRequest(requestId)
+                                // Пересоздаем задачу
+                                workManager.enqueueRequest(requestId)
+                                // Обновляем дату регистрации
+                                fileStorage.saveStatus(requestId, RequestStatus.IN_PROGRESS, currentTime)
+                                taskInfo = taskInfo.copy(registrationDate = currentTime)
+                            }
+                        }
                         // Задача действительно выполняется в WorkManager
-                        // Статус IN_PROGRESS в файле корректный, ничего не делаем
+                        // Статус IN_PROGRESS в файле корректный
                     }
                     WorkManagerDataSource.WorkStateResult.NOT_FOUND -> {
                         // Задача не найдена в WorkManager
-                        // Это может означать, что задача была удалена или еще не запущена
-                        // Оставляем статус как есть (IN_PROGRESS из файла)
+                        // Проверяем возраст задачи - если она старая, пересоздаем её
+                        val queueTimeout = fileStorage.loadQueueTimeout(requestId)
+                        val currentTime = System.currentTimeMillis()
+                        val taskAge = currentTime - taskInfo.registrationDate
+                        
+                        // Если задача не найдена в WorkManager, но она недавно создана, пересоздаем
+                        // Если задача старая (старше queueTimeout), возможно она уже завершилась, но файл ответа потерян
+                        if (taskAge < queueTimeout * 1000L) {
+                            // Задача недавно создана, но не найдена в WorkManager - пересоздаем
+                            android.util.Log.w("TaskRepositoryImpl", "Task $requestId not found in WorkManager, recreating...")
+                            workManager.enqueueRequest(requestId)
+                            fileStorage.saveStatus(requestId, RequestStatus.IN_PROGRESS, currentTime)
+                            taskInfo = taskInfo.copy(registrationDate = currentTime)
+                        } else {
+                            // Задача старая и не найдена в WorkManager - возможно, она зависла
+                            // Помечаем как FAILED
+                            android.util.Log.w("TaskRepositoryImpl", "Task $requestId is old (${taskAge}ms) and not found in WorkManager, marking as FAILED")
+                            fileStorage.saveStatus(requestId, RequestStatus.FAILED)
+                            taskInfo = taskInfo.copy(status = RequestStatus.FAILED)
+                        }
                     }
                 }
             }
@@ -185,18 +223,75 @@ class TaskRepositoryImpl(
                 // Проверяем, что нет ответа (задача еще не завершена)
                 val response = fileStorage.loadTaskResponse(requestId)
                 if (response == null || response.responseJson == null) {
-                    // Добавляем задачу в список pending, если:
-                    // 1. Есть активная задача в WorkManager (ENQUEUED, RUNNING или BLOCKED)
-                    // 2. ИЛИ задачи нет в WorkManager, но статус IN_PROGRESS - значит она зависла
-                    // (в этом случае она все равно считается pending, так как не завершена)
-                    val hasActiveWork = workManager.hasActiveWork(requestId)
-                    // Если задачи нет в WorkManager, но статус IN_PROGRESS - это зависшая задача
-                    // Ее тоже нужно считать pending, так как она не завершена
-                    // Добавляем задачу, если она активна в WorkManager ИЛИ если ее нет в WorkManager (зависла)
-                    pendingTasks.add(PendingTask(
-                        requestId = requestId,
-                        registrationDate = taskInfo.registrationDate
-                    ))
+                    // Проверяем состояние задачи в WorkManager
+                    val (workState, workInfoState) = workManager.getDetailedWorkState(requestId)
+                    
+                    when (workState) {
+                        WorkManagerDataSource.WorkStateResult.IN_PROGRESS -> {
+                            // Проверяем, не зависла ли задача
+                            if (workInfoState == WorkInfo.State.ENQUEUED || workInfoState == WorkInfo.State.BLOCKED) {
+                                val queueTimeout = fileStorage.loadQueueTimeout(requestId)
+                                val currentTime = System.currentTimeMillis()
+                                val taskAge = currentTime - taskInfo.registrationDate
+                                
+                                // Если задача зависла дольше queueTimeout, пересоздаем её
+                                if (taskAge > queueTimeout * 1000L) {
+                                    android.util.Log.w("TaskRepositoryImpl", "Task $requestId is stuck in ${workInfoState} for ${taskAge}ms in getPendingTasks, recreating...")
+                                    // Отменяем старую задачу
+                                    workManager.cancelRequest(requestId)
+                                    // Пересоздаем задачу
+                                    workManager.enqueueRequest(requestId)
+                                    // Обновляем дату регистрации
+                                    fileStorage.saveStatus(requestId, RequestStatus.IN_PROGRESS, currentTime)
+                                    // Добавляем в pending с обновленной датой
+                                    pendingTasks.add(PendingTask(
+                                        requestId = requestId,
+                                        registrationDate = currentTime
+                                    ))
+                                } else {
+                                    // Задача еще не зависла, добавляем в pending
+                                    pendingTasks.add(PendingTask(
+                                        requestId = requestId,
+                                        registrationDate = taskInfo.registrationDate
+                                    ))
+                                }
+                            } else {
+                                // Задача выполняется (RUNNING), добавляем в pending
+                                pendingTasks.add(PendingTask(
+                                    requestId = requestId,
+                                    registrationDate = taskInfo.registrationDate
+                                ))
+                            }
+                        }
+                        WorkManagerDataSource.WorkStateResult.NOT_FOUND -> {
+                            // Задача не найдена в WorkManager
+                            val queueTimeout = fileStorage.loadQueueTimeout(requestId)
+                            val currentTime = System.currentTimeMillis()
+                            val taskAge = currentTime - taskInfo.registrationDate
+                            
+                            // Если задача недавно создана, но не найдена в WorkManager - пересоздаем
+                            if (taskAge < queueTimeout * 1000L) {
+                                android.util.Log.w("TaskRepositoryImpl", "Task $requestId not found in WorkManager in getPendingTasks, recreating...")
+                                workManager.enqueueRequest(requestId)
+                                fileStorage.saveStatus(requestId, RequestStatus.IN_PROGRESS, currentTime)
+                                // Добавляем в pending с обновленной датой
+                                pendingTasks.add(PendingTask(
+                                    requestId = requestId,
+                                    registrationDate = currentTime
+                                ))
+                            } else {
+                                // Задача старая и не найдена - возможно, она зависла
+                                // Помечаем как FAILED, не добавляем в pending
+                                android.util.Log.w("TaskRepositoryImpl", "Task $requestId is old (${taskAge}ms) and not found in WorkManager in getPendingTasks, marking as FAILED")
+                                fileStorage.saveStatus(requestId, RequestStatus.FAILED)
+                            }
+                        }
+                        WorkManagerDataSource.WorkStateResult.SUCCEEDED,
+                        WorkManagerDataSource.WorkStateResult.FAILED -> {
+                            // Задача завершена, не добавляем в pending
+                            // Статус будет обновлен при следующем вызове getTaskInfo
+                        }
+                    }
                 }
             }
         }
