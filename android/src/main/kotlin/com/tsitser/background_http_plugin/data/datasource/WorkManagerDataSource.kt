@@ -193,6 +193,48 @@ class WorkManagerDataSource(private val context: Context) {
     }
 
     /**
+     * Получает детальное состояние задачи в WorkManager
+     * @return Pair(WorkStateResult, WorkInfo.State?) - состояние и конкретный статус WorkManager
+     */
+    suspend fun getDetailedWorkState(requestId: String): Pair<WorkStateResult, WorkInfo.State?> {
+        return try {
+            val workInfosFuture: ListenableFuture<List<WorkInfo>> = workManager.getWorkInfosByTag("request_$requestId")
+            val workInfoList = workInfosFuture.get()
+            
+            if (workInfoList.isEmpty()) {
+                Pair(WorkStateResult.NOT_FOUND, null)
+            } else {
+                var foundResult: Pair<WorkStateResult, WorkInfo.State?>? = null
+                for (workInfo in workInfoList) {
+                    when (workInfo.state) {
+                        WorkInfo.State.SUCCEEDED -> {
+                            foundResult = Pair(WorkStateResult.SUCCEEDED, workInfo.state)
+                            break
+                        }
+                        WorkInfo.State.FAILED -> {
+                            foundResult = Pair(WorkStateResult.FAILED, workInfo.state)
+                            break
+                        }
+                        WorkInfo.State.CANCELLED -> {
+                            foundResult = Pair(WorkStateResult.FAILED, workInfo.state)
+                            break
+                        }
+                        WorkInfo.State.ENQUEUED,
+                        WorkInfo.State.RUNNING,
+                        WorkInfo.State.BLOCKED -> {
+                            foundResult = Pair(WorkStateResult.IN_PROGRESS, workInfo.state)
+                            break
+                        }
+                    }
+                }
+                foundResult ?: Pair(WorkStateResult.NOT_FOUND, null)
+            }
+        } catch (e: Exception) {
+            Pair(WorkStateResult.NOT_FOUND, null)
+        }
+    }
+
+    /**
      * Отменяет все задачи
      * @return количество отмененных задач (всегда 0, так как точное количество неизвестно)
      */

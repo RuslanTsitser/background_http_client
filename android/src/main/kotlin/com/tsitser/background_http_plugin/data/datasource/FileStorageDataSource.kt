@@ -114,6 +114,24 @@ class FileStorageDataSource(private val context: Context) {
     }
 
     /**
+     * Загружает queueTimeout из файла запроса
+     */
+    fun loadQueueTimeout(requestId: String): Int {
+        val requestFile = File(requestsDir, "$requestId.json")
+        if (!requestFile.exists()) {
+            return 600 // Значение по умолчанию
+        }
+
+        return try {
+            val jsonString = requestFile.readText()
+            val json = org.json.JSONObject(jsonString)
+            json.optInt("queueTimeout", 600)
+        } catch (e: Exception) {
+            600 // Значение по умолчанию
+        }
+    }
+
+    /**
      * Загружает дату регистрации из файла статуса
      */
     private fun loadRegistrationDate(requestId: String): Long? {
