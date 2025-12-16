@@ -411,4 +411,64 @@ class BackgroundHttpClient {
   Future<int> cancelAllTasks() async {
     return await _platform.cancelAllTasks();
   }
+
+  // ============== Методы управления очередью ==============
+
+  /// Получает статистику очереди задач
+  ///
+  /// Возвращает [QueueStats] с информацией о состоянии очереди:
+  /// - pendingCount: количество задач в очереди (ожидающих выполнения)
+  /// - activeCount: количество активных задач (выполняющихся прямо сейчас)
+  /// - maxConcurrent: максимальное количество одновременных задач
+  /// - maxQueueSize: максимальный размер очереди
+  Future<QueueStats> getQueueStats() async {
+    final result = await _platform.getQueueStats();
+    return QueueStats.fromJson(result);
+  }
+
+  /// Устанавливает максимальное количество одновременных задач
+  ///
+  /// [count] - максимальное количество одновременных задач (минимум 1, по умолчанию 30)
+  ///
+  /// Если увеличить лимит, плагин автоматически запустит дополнительные задачи из очереди.
+  /// Если уменьшить лимит, текущие активные задачи не будут отменены,
+  /// но новые не будут запускаться пока количество активных не станет меньше нового лимита.
+  Future<bool> setMaxConcurrentTasks(int count) async {
+    if (count < 1) {
+      throw ArgumentError('count must be at least 1');
+    }
+    return await _platform.setMaxConcurrentTasks(count);
+  }
+
+  /// Устанавливает максимальный размер очереди
+  ///
+  /// [size] - максимальный размер очереди (минимум 1, по умолчанию 10000)
+  ///
+  /// Если очередь переполнена, новые задачи будут отклонены.
+  Future<bool> setMaxQueueSize(int size) async {
+    if (size < 1) {
+      throw ArgumentError('size must be at least 1');
+    }
+    return await _platform.setMaxQueueSize(size);
+  }
+
+  /// Синхронизирует состояние очереди с реальным состоянием задач
+  ///
+  /// Вызывается для очистки "зависших" задач:
+  /// - Задачи, которые помечены как активные, но не выполняются в WorkManager
+  /// - Задачи в очереди, для которых не существует файла запроса
+  ///
+  /// Рекомендуется вызывать при старте приложения.
+  Future<bool> syncQueueState() async {
+    return await _platform.syncQueueState();
+  }
+
+  /// Принудительно обрабатывает очередь
+  ///
+  /// Запускает ожидающие задачи, если есть свободные слоты.
+  /// Обычно это происходит автоматически, но можно вызвать вручную
+  /// для немедленного запуска задач.
+  Future<bool> processQueue() async {
+    return await _platform.processQueue();
+  }
 }

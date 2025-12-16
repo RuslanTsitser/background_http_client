@@ -246,5 +246,55 @@ class FileStorageDataSource {
             .filter { $0.pathExtension == "json" }
             .map { $0.deletingPathExtension().lastPathComponent }
     }
+    
+    /// Загружает данные запроса из файла
+    func loadRequestData(requestId: String) -> RequestData? {
+        let requestFile = requestsDir.appendingPathComponent("\(requestId).json")
+        guard FileManager.default.fileExists(atPath: requestFile.path),
+              let data = try? Data(contentsOf: requestFile),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return nil
+        }
+        
+        // Парсим multipartFiles
+        var multipartFiles: [String: MultipartFile]?
+        if let filesDict = json["multipartFiles"] as? [String: [String: Any]] {
+            multipartFiles = [:]
+            for (key, value) in filesDict {
+                if let filePath = value["filePath"] as? String {
+                    multipartFiles?[key] = MultipartFile(
+                        filePath: filePath,
+                        filename: value["filename"] as? String,
+                        contentType: value["contentType"] as? String
+                    )
+                }
+            }
+        }
+        
+        return RequestData(
+            url: json["url"] as? String ?? "",
+            method: json["method"] as? String ?? "GET",
+            headers: json["headers"] as? [String: String],
+            body: json["body"] as? String,
+            queryParameters: json["queryParameters"] as? [String: String],
+            timeout: json["timeout"] as? Int,
+            multipartFields: json["multipartFields"] as? [String: String],
+            multipartFiles: multipartFiles,
+            retries: json["retries"] as? Int
+        )
+    }
+}
+
+/// Структура для хранения данных запроса
+struct RequestData {
+    let url: String
+    let method: String
+    let headers: [String: String]?
+    let body: String?
+    let queryParameters: [String: String]?
+    let timeout: Int?
+    let multipartFields: [String: String]?
+    let multipartFiles: [String: MultipartFile]?
+    let retries: Int?
 }
 

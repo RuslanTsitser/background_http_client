@@ -338,3 +338,59 @@ class PendingTask {
   /// Получает дату регистрации как DateTime
   DateTime get registrationDateTime => DateTime.fromMillisecondsSinceEpoch(registrationDate);
 }
+
+/// Статистика очереди задач
+class QueueStats {
+  /// Количество задач в очереди (ожидающих выполнения)
+  final int pendingCount;
+
+  /// Количество активных задач (выполняющихся прямо сейчас)
+  final int activeCount;
+
+  /// Максимальное количество одновременных задач
+  final int maxConcurrent;
+
+  /// Максимальный размер очереди
+  final int maxQueueSize;
+
+  QueueStats({
+    required this.pendingCount,
+    required this.activeCount,
+    required this.maxConcurrent,
+    required this.maxQueueSize,
+  });
+
+  /// Создает объект из JSON
+  factory QueueStats.fromJson(Map<String, dynamic> json) {
+    return QueueStats(
+      pendingCount: json['pendingCount'] as int? ?? 0,
+      activeCount: json['activeCount'] as int? ?? 0,
+      maxConcurrent: json['maxConcurrent'] as int? ?? 30,
+      maxQueueSize: json['maxQueueSize'] as int? ?? 10000,
+    );
+  }
+
+  /// Преобразует объект в JSON
+  Map<String, dynamic> toJson() {
+    return {
+      'pendingCount': pendingCount,
+      'activeCount': activeCount,
+      'maxConcurrent': maxConcurrent,
+      'maxQueueSize': maxQueueSize,
+    };
+  }
+
+  /// Общее количество задач (в очереди + активные)
+  int get totalCount => pendingCount + activeCount;
+
+  /// Количество доступных слотов для новых задач
+  int get availableSlots => maxConcurrent - activeCount;
+
+  /// Заполнена ли очередь
+  bool get isQueueFull => pendingCount >= maxQueueSize;
+
+  @override
+  String toString() {
+    return 'QueueStats(pending: $pendingCount, active: $activeCount, maxConcurrent: $maxConcurrent, maxQueueSize: $maxQueueSize)';
+  }
+}

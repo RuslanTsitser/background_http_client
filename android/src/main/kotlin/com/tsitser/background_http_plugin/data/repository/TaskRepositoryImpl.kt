@@ -2,6 +2,7 @@ package com.tsitser.background_http_plugin.data.repository
 
 import android.content.Context
 import com.tsitser.background_http_plugin.data.datasource.FileStorageDataSource
+import com.tsitser.background_http_plugin.data.datasource.TaskQueueManager
 import com.tsitser.background_http_plugin.data.datasource.WorkManagerDataSource
 import com.tsitser.background_http_plugin.data.mapper.RequestMapper
 import com.tsitser.background_http_plugin.domain.entity.HttpRequest
@@ -15,6 +16,9 @@ import java.util.UUID
 
 /**
  * Реализация репозитория для работы с задачами HTTP запросов
+ * 
+ * Использует TaskQueueManager для управления очередью задач,
+ * что позволяет избежать зависания при регистрации большого числа задач.
  */
 class TaskRepositoryImpl(
     private val context: Context
@@ -22,6 +26,7 @@ class TaskRepositoryImpl(
 
     private val fileStorage = FileStorageDataSource(context)
     private val workManager = WorkManagerDataSource(context)
+    private val queueManager = TaskQueueManager.getInstance(context)
     
     // Mutex для защиты от race condition при создании запросов с одинаковым requestId
     private val createTaskMutex = Mutex()
@@ -46,6 +51,13 @@ class TaskRepositoryImpl(
             val existingTask = fileStorage.loadTaskInfo(requestId)
             if (existingTask != null) {
                 // Запрос уже существует
+                // Проверяем, находится ли он в очереди или активен
+                if (queueManager.isTaskPendingOrActive(requestId)) {
+                    // Задача уже в очереди или выполняется
+                    return@withLock existingTask
+                }
+                
+                // Проверяем состояние в WorkManager
                 val workState = workManager.getWorkState(requestId, forceRefresh = false)
                 when (workState) {
                     WorkManagerDataSource.WorkStateResult.IN_PROGRESS,
@@ -55,10 +67,9 @@ class TaskRepositoryImpl(
                         return@withLock existingTask
                     }
                     WorkManagerDataSource.WorkStateResult.NOT_FOUND -> {
-                        // Запрос существует в файловой системе, но не найден в WorkManager
-                        // Возможно, он был удален из WorkManager, но файлы остались
-                        // Пересоздаем задачу в WorkManager
-                        workManager.enqueueRequest(requestId)
+                        // Запрос существует в файловой системе, но не найден в WorkManager и не в очереди
+                        // Добавляем в очередь для выполнения
+                        queueManager.enqueue(requestId)
                         return@withLock existingTask
                     }
                 }
@@ -73,8 +84,9 @@ class TaskRepositoryImpl(
                 // Сохраняем запрос в файл
                 val taskInfo = fileStorage.saveRequest(request, requestId, registrationDate)
 
-                // Запускаем задачу через WorkManager
-                workManager.enqueueRequest(requestId)
+                // Добавляем задачу в очередь (вместо прямого запуска в WorkManager)
+                // TaskQueueManager сам решит, когда запустить задачу
+                queueManager.enqueue(requestId)
 
                 return@withLock taskInfo
             } finally {
@@ -102,11 +114,19 @@ class TaskRepositoryImpl(
                     if (status != null && status != RequestStatus.IN_PROGRESS) {
                         // Обновляем статус в файле статуса для консистентности
                         fileStorage.saveStatus(requestId, status)
+                        // Уведомляем очередь о завершении задачи
+                        queueManager.onTaskCompleted(requestId)
                         // Возвращаем обновленную информацию
                         taskInfo = taskInfo.copy(status = status)
                     }
                 }
             } else {
+                // Проверяем, находится ли задача в очереди (ещё не запущена)
+                if (queueManager.isTaskQueued(requestId)) {
+                    // Задача в очереди, статус IN_PROGRESS корректен
+                    return taskInfo
+                }
+                
                 // Если файла ответа нет, проверяем состояние в WorkManager
                 // Это поможет определить, завершена ли задача, но файл ответа еще не записан
                 // Используем кэширование для оптимизации при большом количестве запросов
@@ -122,6 +142,8 @@ class TaskRepositoryImpl(
                         // WorkManager сообщает, что задача завершена с ошибкой
                         // Обновляем статус
                         fileStorage.saveStatus(requestId, RequestStatus.FAILED)
+                        // Уведомляем очередь о завершении задачи
+                        queueManager.onTaskCompleted(requestId)
                         taskInfo = taskInfo.copy(status = RequestStatus.FAILED)
                     }
                     WorkManagerDataSource.WorkStateResult.IN_PROGRESS -> {
@@ -129,9 +151,11 @@ class TaskRepositoryImpl(
                         // Статус IN_PROGRESS в файле корректный, ничего не делаем
                     }
                     WorkManagerDataSource.WorkStateResult.NOT_FOUND -> {
-                        // Задача не найдена в WorkManager
-                        // Это может означать, что задача была удалена или еще не запущена
-                        // Оставляем статус как есть (IN_PROGRESS из файла)
+                        // Задача не найдена в WorkManager и не в очереди
+                        // Возможно, она была потеряна - добавляем обратно в очередь
+                        if (!queueManager.isTaskPendingOrActive(requestId)) {
+                            queueManager.enqueue(requestId)
+                        }
                     }
                 }
             }
@@ -141,7 +165,14 @@ class TaskRepositoryImpl(
     }
 
     override suspend fun getTaskResponse(requestId: String): TaskInfo? {
-        return fileStorage.loadTaskResponse(requestId)
+        val response = fileStorage.loadTaskResponse(requestId)
+        
+        // Если получили ответ, уведомляем очередь о завершении
+        if (response?.responseJson != null) {
+            queueManager.onTaskCompleted(requestId)
+        }
+        
+        return response
     }
 
     override suspend fun cancelTask(requestId: String): Boolean? {
@@ -150,7 +181,12 @@ class TaskRepositoryImpl(
         }
 
         return try {
+            // Удаляем из очереди, если задача там
+            queueManager.removeFromQueue(requestId)
+            // Отменяем в WorkManager, если задача там
             workManager.cancelRequest(requestId)
+            // Уведомляем очередь о завершении
+            queueManager.onTaskCompleted(requestId)
             fileStorage.saveStatus(requestId, RequestStatus.FAILED)
             true
         } catch (e: Exception) {
@@ -164,6 +200,10 @@ class TaskRepositoryImpl(
         }
 
         return try {
+            // Удаляем из очереди
+            queueManager.removeFromQueue(requestId)
+            // Уведомляем очередь о завершении (на случай если задача была активна)
+            queueManager.onTaskCompleted(requestId)
             workManager.deleteRequest(requestId)
             val deleted = fileStorage.deleteTaskFiles(requestId)
             deleted
@@ -185,14 +225,7 @@ class TaskRepositoryImpl(
                 // Проверяем, что нет ответа (задача еще не завершена)
                 val response = fileStorage.loadTaskResponse(requestId)
                 if (response == null || response.responseJson == null) {
-                    // Добавляем задачу в список pending, если:
-                    // 1. Есть активная задача в WorkManager (ENQUEUED, RUNNING или BLOCKED)
-                    // 2. ИЛИ задачи нет в WorkManager, но статус IN_PROGRESS - значит она зависла
-                    // (в этом случае она все равно считается pending, так как не завершена)
-                    val hasActiveWork = workManager.hasActiveWork(requestId)
-                    // Если задачи нет в WorkManager, но статус IN_PROGRESS - это зависшая задача
-                    // Ее тоже нужно считать pending, так как она не завершена
-                    // Добавляем задачу, если она активна в WorkManager ИЛИ если ее нет в WorkManager (зависла)
+                    // Добавляем задачу в список pending
                     pendingTasks.add(PendingTask(
                         requestId = requestId,
                         registrationDate = taskInfo.registrationDate
@@ -205,7 +238,44 @@ class TaskRepositoryImpl(
     }
 
     override suspend fun cancelAllTasks(): Int {
-        return workManager.cancelAllTasks()
+        // Очищаем нашу очередь и WorkManager
+        val queueCleared = queueManager.clearAll()
+        workManager.cancelAllTasks()
+        return queueCleared
+    }
+    
+    /**
+     * Получает статистику очереди
+     */
+    fun getQueueStats(): TaskQueueManager.QueueStats {
+        return queueManager.getQueueStats()
+    }
+    
+    /**
+     * Устанавливает максимальное количество одновременных задач
+     */
+    suspend fun setMaxConcurrentTasks(count: Int) {
+        queueManager.setMaxConcurrentTasks(count)
+    }
+    
+    /**
+     * Устанавливает максимальный размер очереди
+     */
+    fun setMaxQueueSize(size: Int) {
+        queueManager.setMaxQueueSize(size)
+    }
+    
+    /**
+     * Синхронизирует состояние очереди
+     */
+    suspend fun syncQueueState() {
+        queueManager.syncQueueState(fileStorage)
+    }
+    
+    /**
+     * Принудительно обрабатывает очередь
+     */
+    suspend fun processQueue() {
+        queueManager.processQueue()
     }
 }
-

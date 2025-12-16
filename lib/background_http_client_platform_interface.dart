@@ -89,4 +89,39 @@ abstract class BackgroundHttpClientPlatform extends PlatformInterface {
   Future<int> cancelAllTasks() {
     throw UnimplementedError('cancelAllTasks() has not been implemented.');
   }
+
+  /// Получает статистику очереди задач
+  ///
+  /// Возвращает Map с полями: pendingCount, activeCount, maxConcurrent, maxQueueSize
+  Future<Map<String, dynamic>> getQueueStats() {
+    throw UnimplementedError('getQueueStats() has not been implemented.');
+  }
+
+  /// Устанавливает максимальное количество одновременных задач
+  ///
+  /// [count] - максимальное количество одновременных задач (минимум 1)
+  Future<bool> setMaxConcurrentTasks(int count) {
+    throw UnimplementedError('setMaxConcurrentTasks() has not been implemented.');
+  }
+
+  /// Устанавливает максимальный размер очереди
+  ///
+  /// [size] - максимальный размер очереди (минимум 1)
+  Future<bool> setMaxQueueSize(int size) {
+    throw UnimplementedError('setMaxQueueSize() has not been implemented.');
+  }
+
+  /// Синхронизирует состояние очереди с реальным состоянием задач
+  ///
+  /// Вызывается для очистки "зависших" задач
+  Future<bool> syncQueueState() {
+    throw UnimplementedError('syncQueueState() has not been implemented.');
+  }
+
+  /// Принудительно обрабатывает очередь
+  ///
+  /// Запускает ожидающие задачи, если есть свободные слоты
+  Future<bool> processQueue() {
+    throw UnimplementedError('processQueue() has not been implemented.');
+  }
 }

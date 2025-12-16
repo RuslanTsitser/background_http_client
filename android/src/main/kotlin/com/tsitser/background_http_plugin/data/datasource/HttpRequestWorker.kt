@@ -151,6 +151,9 @@ class HttpRequestWorker(
                 error = if (status == RequestStatus.FAILED) responseBody ?: "Request failed" else null
             )
 
+            // Уведомляем очередь о завершении задачи
+            notifyTaskCompleted(requestId)
+            
             // Отправляем событие только при успешном завершении
             if (status == RequestStatus.COMPLETED) {
                 sendTaskCompletedEvent(requestId)
@@ -189,6 +192,8 @@ class HttpRequestWorker(
             )
             
             // Не отправляем событие при ошибках - только при успешном завершении
+            // Но уведомляем очередь о завершении задачи (чтобы запустить следующую)
+            notifyTaskCompleted(requestId)
             
             // При сетевых ошибках WorkManager будет повторять задачу
             // WorkManager имеет ограничение NetworkType.CONNECTED, поэтому при отсутствии интернета
@@ -288,6 +293,21 @@ class HttpRequestWorker(
             eventHandler.sendCompletedTask(requestId)
         } catch (e: Exception) {
             Log.e(TAG, "Error sending task completed event for $requestId", e)
+        }
+    }
+    
+    /**
+     * Уведомляет TaskQueueManager о завершении задачи
+     * Это позволяет запустить следующую задачу из очереди
+     */
+    private fun notifyTaskCompleted(requestId: String) {
+        try {
+            val queueManager = TaskQueueManager.getInstance(applicationContext)
+            kotlinx.coroutines.runBlocking {
+                queueManager.onTaskCompleted(requestId)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error notifying queue manager about task completion for $requestId", e)
         }
     }
 }

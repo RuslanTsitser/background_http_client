@@ -139,4 +139,88 @@ class MethodChannelBackgroundHttpClient extends BackgroundHttpClientPlatform {
       );
     }
   }
+
+  @override
+  Future<Map<String, dynamic>> getQueueStats() async {
+    try {
+      final result = await methodChannel.invokeMethod<Map<Object?, Object?>>('getQueueStats');
+      if (result == null) {
+        return {
+          'pendingCount': 0,
+          'activeCount': 0,
+          'maxConcurrent': 30,
+          'maxQueueSize': 10000,
+        };
+      }
+      return Map<String, dynamic>.from(result);
+    } on PlatformException catch (e) {
+      throw PlatformException(
+        code: e.code,
+        message: e.message,
+        details: e.details,
+      );
+    }
+  }
+
+  @override
+  Future<bool> setMaxConcurrentTasks(int count) async {
+    try {
+      final result = await methodChannel.invokeMethod<bool>(
+        'setMaxConcurrentTasks',
+        {'count': count},
+      );
+      return result ?? false;
+    } on PlatformException catch (e) {
+      throw PlatformException(
+        code: e.code,
+        message: e.message,
+        details: e.details,
+      );
+    }
+  }
+
+  @override
+  Future<bool> setMaxQueueSize(int size) async {
+    try {
+      final result = await methodChannel.invokeMethod<bool>(
+        'setMaxQueueSize',
+        {'size': size},
+      );
+      return result ?? false;
+    } on PlatformException catch (e) {
+      throw PlatformException(
+        code: e.code,
+        message: e.message,
+        details: e.details,
+      );
+    }
+  }
+
+  @override
+  Future<bool> syncQueueState() async {
+    try {
+      final result = await methodChannel.invokeMethod<bool>('syncQueueState');
+      return result ?? false;
+    } on PlatformException catch (e) {
+      throw PlatformException(
+        code: e.code,
+        message: e.message,
+        details: e.details,
+      );
+    }
+  }
+
+  @override
+  Future<bool> processQueue() async {
+    try {
+      final result = await methodChannel.invokeMethod<bool>('processQueue');
+      return result ?? false;
+    } on PlatformException catch (e) {
+      throw PlatformException(
+        code: e.code,
+        message: e.message,
+        details: e.details,
+      );
+    }
+  }
 }

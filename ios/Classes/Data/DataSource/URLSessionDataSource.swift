@@ -24,7 +24,8 @@ class URLSessionDataSource {
         multipartFields: [String: String]?,
         multipartFiles: [String: MultipartFile]?,
         retries: Int,
-        fileStorage: FileStorageDataSource
+        fileStorage: FileStorageDataSource,
+        onCompleted: (() -> Void)? = nil
     ) async throws {
         // Проверяем, не отменен ли запрос
         if cancelledRequestIds.contains(requestId) {
@@ -124,6 +125,8 @@ class URLSessionDataSource {
                 )
                 
                 // Не отправляем событие при ошибках - только при успешном завершении
+                // Но уведомляем о завершении через callback
+                onCompleted?()
                 
                 // Если это сетевая ошибка и есть попытки, повторяем
                 // НО: при отсутствии интернета не тратим попытки - ждем появления интернета
@@ -185,6 +188,8 @@ class URLSessionDataSource {
                     error: "Invalid response: response is not HTTPURLResponse"
                 )
                 // Не отправляем событие при ошибках - только при успешном завершении
+                // Но уведомляем о завершении через callback
+                onCompleted?()
                 return
             }
             
@@ -227,6 +232,9 @@ class URLSessionDataSource {
                 status: status,
                 error: status == .failed ? (responseBody ?? "Request failed") : nil
             )
+            
+            // Уведомляем о завершении через callback
+            onCompleted?()
             
             // Отправляем событие только при успешном завершении
             if status == .completed {

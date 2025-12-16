@@ -3,7 +3,7 @@ import Foundation
 
 /// Обработчик вызовов методов от Flutter
 class MethodCallHandler {
-    private let repository: TaskRepository
+    private let repository: TaskRepositoryImpl
     private let createRequestUseCase: CreateRequestUseCase
     private let getRequestStatusUseCase: GetRequestStatusUseCase
     private let getResponseUseCase: GetResponseUseCase
@@ -35,6 +35,17 @@ class MethodCallHandler {
             handleGetPendingTasks(call: call, result: result)
         case "cancelAllTasks":
             handleCancelAllTasks(call: call, result: result)
+        // Новые методы для управления очередью
+        case "getQueueStats":
+            handleGetQueueStats(call: call, result: result)
+        case "setMaxConcurrentTasks":
+            handleSetMaxConcurrentTasks(call: call, result: result)
+        case "setMaxQueueSize":
+            handleSetMaxQueueSize(call: call, result: result)
+        case "syncQueueState":
+            handleSyncQueueState(call: call, result: result)
+        case "processQueue":
+            handleProcessQueue(call: call, result: result)
         default:
             result(FlutterMethodNotImplemented)
         }
@@ -161,6 +172,53 @@ class MethodCallHandler {
             } catch {
                 result(FlutterError(code: "CANCEL_ALL_TASKS_FAILED", message: error.localizedDescription, details: nil))
             }
+        }
+    }
+    
+    // MARK: - Queue Management Methods
+    
+    private func handleGetQueueStats(call: FlutterMethodCall, result: @escaping FlutterResult) {
+        Task {
+            let stats = await repository.getQueueStats()
+            result(stats.toDict())
+        }
+    }
+    
+    private func handleSetMaxConcurrentTasks(call: FlutterMethodCall, result: @escaping FlutterResult) {
+        guard let args = call.arguments as? [String: Any],
+              let count = args["count"] as? Int else {
+            result(FlutterError(code: "INVALID_ARGUMENT", message: "count is required", details: nil))
+            return
+        }
+        
+        Task {
+            await repository.setMaxConcurrentTasks(count)
+            result(true)
+        }
+    }
+    
+    private func handleSetMaxQueueSize(call: FlutterMethodCall, result: @escaping FlutterResult) {
+        guard let args = call.arguments as? [String: Any],
+              let size = args["size"] as? Int else {
+            result(FlutterError(code: "INVALID_ARGUMENT", message: "size is required", details: nil))
+            return
+        }
+        
+        Task {
+            await repository.setMaxQueueSize(size)
+            result(true)
+        }
+    }
+    
+    private func handleSyncQueueState(call: FlutterMethodCall, result: @escaping FlutterResult) {
+        // На iOS синхронизация не требуется, так как мы используем actor
+        result(true)
+    }
+    
+    private func handleProcessQueue(call: FlutterMethodCall, result: @escaping FlutterResult) {
+        Task {
+            await repository.processQueue()
+            result(true)
         }
     }
 }

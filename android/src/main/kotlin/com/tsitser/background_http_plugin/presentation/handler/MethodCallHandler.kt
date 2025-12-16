@@ -35,6 +35,12 @@ class MethodCallHandler(private val context: Context) : MethodChannel.MethodCall
             "deleteRequest" -> handleDeleteRequest(call, result)
             "getPendingTasks" -> handleGetPendingTasks(call, result)
             "cancelAllTasks" -> handleCancelAllTasks(call, result)
+            // Новые методы для управления очередью
+            "getQueueStats" -> handleGetQueueStats(call, result)
+            "setMaxConcurrentTasks" -> handleSetMaxConcurrentTasks(call, result)
+            "setMaxQueueSize" -> handleSetMaxQueueSize(call, result)
+            "syncQueueState" -> handleSyncQueueState(call, result)
+            "processQueue" -> handleProcessQueue(call, result)
             else -> result.notImplemented()
         }
     }
@@ -227,6 +233,96 @@ class MethodCallHandler(private val context: Context) : MethodChannel.MethodCall
             } catch (e: Exception) {
                 android.util.Log.e("MethodCallHandler", "Error cancelling all tasks", e)
                 result.error("CANCEL_ALL_TASKS_FAILED", e.message, null)
+            }
+        }
+    }
+    
+    private fun handleGetQueueStats(call: MethodCall, result: MethodChannel.Result) {
+        try {
+            val stats = repository.getQueueStats()
+            result.success(stats.toMap())
+        } catch (e: Exception) {
+            android.util.Log.e("MethodCallHandler", "Error getting queue stats", e)
+            result.error("GET_QUEUE_STATS_FAILED", e.message, null)
+        }
+    }
+    
+    private fun handleSetMaxConcurrentTasks(call: MethodCall, result: MethodChannel.Result) {
+        try {
+            @Suppress("UNCHECKED_CAST")
+            val args = call.arguments as? Map<*, *>
+                ?: run {
+                    result.error("INVALID_ARGUMENT", "Arguments are required", null)
+                    return
+                }
+            
+            val count = (args["count"] as? Number)?.toInt()
+                ?: run {
+                    result.error("INVALID_ARGUMENT", "count is required", null)
+                    return
+                }
+            
+            scope.launch {
+                try {
+                    withContext(Dispatchers.IO) {
+                        repository.setMaxConcurrentTasks(count)
+                    }
+                    result.success(true)
+                } catch (e: Exception) {
+                    result.error("SET_MAX_CONCURRENT_FAILED", e.message, null)
+                }
+            }
+        } catch (e: Exception) {
+            result.error("INVALID_ARGUMENT", e.message, null)
+        }
+    }
+    
+    private fun handleSetMaxQueueSize(call: MethodCall, result: MethodChannel.Result) {
+        try {
+            @Suppress("UNCHECKED_CAST")
+            val args = call.arguments as? Map<*, *>
+                ?: run {
+                    result.error("INVALID_ARGUMENT", "Arguments are required", null)
+                    return
+                }
+            
+            val size = (args["size"] as? Number)?.toInt()
+                ?: run {
+                    result.error("INVALID_ARGUMENT", "size is required", null)
+                    return
+                }
+            
+            repository.setMaxQueueSize(size)
+            result.success(true)
+        } catch (e: Exception) {
+            result.error("SET_MAX_QUEUE_SIZE_FAILED", e.message, null)
+        }
+    }
+    
+    private fun handleSyncQueueState(call: MethodCall, result: MethodChannel.Result) {
+        scope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    repository.syncQueueState()
+                }
+                result.success(true)
+            } catch (e: Exception) {
+                android.util.Log.e("MethodCallHandler", "Error syncing queue state", e)
+                result.error("SYNC_QUEUE_STATE_FAILED", e.message, null)
+            }
+        }
+    }
+    
+    private fun handleProcessQueue(call: MethodCall, result: MethodChannel.Result) {
+        scope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    repository.processQueue()
+                }
+                result.success(true)
+            } catch (e: Exception) {
+                android.util.Log.e("MethodCallHandler", "Error processing queue", e)
+                result.error("PROCESS_QUEUE_FAILED", e.message, null)
             }
         }
     }
