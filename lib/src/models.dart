@@ -128,21 +128,26 @@ class HttpRequest {
       multipartFiles = {};
       final filesMap = json['multipartFiles'] as Map<dynamic, dynamic>;
       filesMap.forEach((key, value) {
-        multipartFiles![key as String] = MultipartFile.fromJson(value as Map<String, dynamic>);
+        multipartFiles![key as String] =
+            MultipartFile.fromJson(value as Map<String, dynamic>);
       });
     }
 
     return HttpRequest(
       url: json['url'] as String,
       method: json['method'] as String,
-      headers: json['headers'] != null ? Map<String, String>.from(json['headers'] as Map<dynamic, dynamic>) : null,
+      headers: json['headers'] != null
+          ? Map<String, String>.from(json['headers'] as Map<dynamic, dynamic>)
+          : null,
       body: json['body'] as String?,
       queryParameters: json['queryParameters'] != null
-          ? Map<String, dynamic>.from(json['queryParameters'] as Map<dynamic, dynamic>)
+          ? Map<String, dynamic>.from(
+              json['queryParameters'] as Map<dynamic, dynamic>)
           : null,
       timeout: json['timeout'] as int?,
       multipartFields: json['multipartFields'] != null
-          ? Map<String, String>.from(json['multipartFields'] as Map<dynamic, dynamic>)
+          ? Map<String, String>.from(
+              json['multipartFields'] as Map<dynamic, dynamic>)
           : null,
       multipartFiles: multipartFiles,
       requestId: json['requestId'] as String?,
@@ -313,7 +318,8 @@ class TaskInfo {
       path: json['path'] as String,
       registrationDate: json['registrationDate'] as int,
       responseJson: json['responseJson'] != null
-          ? Map<String, dynamic>.from(json['responseJson'] as Map<dynamic, dynamic>)
+          ? Map<String, dynamic>.from(
+              json['responseJson'] as Map<dynamic, dynamic>)
           : null,
     );
   }
@@ -333,7 +339,8 @@ class TaskInfo {
   RequestStatus get statusEnum => RequestStatus.values[status];
 
   /// Gets registration date as DateTime
-  DateTime get registrationDateTime => DateTime.fromMillisecondsSinceEpoch(registrationDate);
+  DateTime get registrationDateTime =>
+      DateTime.fromMillisecondsSinceEpoch(registrationDate);
 }
 
 /// Information about a pending task
@@ -366,7 +373,8 @@ class PendingTask {
   }
 
   /// Gets registration date as DateTime
-  DateTime get registrationDateTime => DateTime.fromMillisecondsSinceEpoch(registrationDate);
+  DateTime get registrationDateTime =>
+      DateTime.fromMillisecondsSinceEpoch(registrationDate);
 }
 
 /// Task queue statistics

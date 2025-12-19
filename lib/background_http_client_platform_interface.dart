@@ -9,7 +9,8 @@ abstract class BackgroundHttpClientPlatform extends PlatformInterface {
 
   static final Object _token = Object();
 
-  static BackgroundHttpClientPlatform _instance = MethodChannelBackgroundHttpClient();
+  static BackgroundHttpClientPlatform _instance =
+      MethodChannelBackgroundHttpClient();
 
   /// Default instance of [BackgroundHttpClientPlatform]
   ///
@@ -73,7 +74,8 @@ abstract class BackgroundHttpClientPlatform extends PlatformInterface {
   ///
   /// Returns [Stream] of [String] with IDs of tasks that have been successfully completed (HTTP status 200-299)
   Stream<String> getCompletedTasksStream() {
-    throw UnimplementedError('getCompletedTasksStream() has not been implemented.');
+    throw UnimplementedError(
+        'getCompletedTasksStream() has not been implemented.');
   }
 
   /// Gets a list of pending tasks with registration dates
@@ -101,7 +103,8 @@ abstract class BackgroundHttpClientPlatform extends PlatformInterface {
   ///
   /// [count] - maximum number of concurrent tasks (minimum 1)
   Future<bool> setMaxConcurrentTasks(int count) {
-    throw UnimplementedError('setMaxConcurrentTasks() has not been implemented.');
+    throw UnimplementedError(
+        'setMaxConcurrentTasks() has not been implemented.');
   }
 
   /// Sets the maximum queue size
