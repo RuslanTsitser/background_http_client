@@ -391,7 +391,7 @@ class BackgroundHttpClient {
 
   /// Gets a stream with IDs of completed tasks
   ///
-  /// Returns Stream<String> with IDs of tasks that have been successfully completed.
+  /// Returns [Stream] of [String] with IDs of tasks that have been successfully completed.
   /// Each time a task successfully completes (HTTP status 200-299), its ID is sent to the stream.
   Stream<String> getCompletedTasksStream() {
     return _platform.getCompletedTasksStream();

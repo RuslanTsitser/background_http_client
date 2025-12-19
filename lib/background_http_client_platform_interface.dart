@@ -71,7 +71,7 @@ abstract class BackgroundHttpClientPlatform extends PlatformInterface {
 
   /// Gets a stream with IDs of completed tasks
   ///
-  /// Returns Stream<String> with IDs of tasks that have been successfully completed (HTTP status 200-299)
+  /// Returns [Stream] of [String] with IDs of tasks that have been successfully completed (HTTP status 200-299)
   Stream<String> getCompletedTasksStream() {
     throw UnimplementedError('getCompletedTasksStream() has not been implemented.');
   }

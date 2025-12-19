@@ -21,12 +21,18 @@ class MultipartFile {
   /// MIME type (optional)
   final String? contentType;
 
+  /// Creates a [MultipartFile] instance
+  ///
+  /// [filePath] - path to the file
+  /// [filename] - optional file name
+  /// [contentType] - optional MIME type
   MultipartFile({
     required this.filePath,
     this.filename,
     this.contentType,
   });
 
+  /// Converts the object to JSON
   Map<String, dynamic> toJson() {
     return {
       'filePath': filePath,
@@ -35,6 +41,7 @@ class MultipartFile {
     };
   }
 
+  /// Creates a [MultipartFile] from JSON
   factory MultipartFile.fromJson(Map<String, dynamic> json) {
     return MultipartFile(
       filePath: json['filePath'] as String,
@@ -85,6 +92,20 @@ class HttpRequest {
   /// Default is 600 seconds (10 minutes). A request is considered stuck in the queue if more than this time has passed.
   final int? queueTimeout;
 
+  /// Creates an [HttpRequest] instance
+  ///
+  /// [url] - URL for the request
+  /// [method] - HTTP method (GET, POST, PUT, DELETE, PATCH, HEAD)
+  /// [headers] - optional request headers
+  /// [body] - optional request body (for POST, PUT, PATCH)
+  /// [queryParameters] - optional query parameters
+  /// [timeout] - optional request timeout in seconds
+  /// [multipartFields] - optional multipart fields (for multipart/form-data)
+  /// [multipartFiles] - optional multipart files (for multipart/form-data)
+  /// [requestId] - optional custom request ID (if not provided, will be generated automatically)
+  /// [retries] - number of retry attempts on errors (0-10, default 0)
+  /// [stuckTimeoutBuffer] - buffer time in seconds to detect stuck requests (default 60)
+  /// [queueTimeout] - maximum waiting time in the queue in seconds (default 600)
   HttpRequest({
     required this.url,
     required this.method,
@@ -181,6 +202,15 @@ class HttpResponse {
   /// Error message (if any)
   final String? error;
 
+  /// Creates an [HttpResponse] instance
+  ///
+  /// [requestId] - request ID
+  /// [statusCode] - HTTP status code
+  /// [headers] - response headers
+  /// [body] - optional response body (if small)
+  /// [responseFilePath] - optional path to the response file
+  /// [status] - request status
+  /// [error] - optional error message
   HttpResponse({
     required this.requestId,
     required this.statusCode,
