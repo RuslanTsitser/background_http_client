@@ -21,12 +21,12 @@ void main() {
     // In a real application this will work after the native part is implemented
 
     try {
-      final requestInfo = await client.get('https://httpbin.org/get');
-      expect(requestInfo.requestId, isNotEmpty);
-      expect(requestInfo.requestFilePath, isNotEmpty);
+      final taskInfo = await client.get('https://httpbin.org/get');
+      expect(taskInfo.id, isNotEmpty);
+      expect(taskInfo.path, isNotEmpty);
 
       // Check status (should not be null since the request has just been created)
-      final status = await client.getRequestStatus(requestInfo.requestId);
+      final status = await client.getRequestStatus(taskInfo.id);
       expect(status, isNotNull);
 
       // Check that null is returned for a non-existent request

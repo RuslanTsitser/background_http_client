@@ -186,7 +186,7 @@ actor TaskRepositoryImpl: TaskRepository {
     
     func cancelTask(requestId: String) async throws -> Bool? {
         guard fileStorage.taskExists(requestId: requestId) else {
-            return null
+            return nil
         }
         
         do {
