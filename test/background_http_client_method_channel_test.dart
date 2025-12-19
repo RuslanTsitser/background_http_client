@@ -13,19 +13,32 @@ void main() {
       channel,
       (MethodCall methodCall) async {
         switch (methodCall.method) {
-          case 'executeRequest':
+          case 'createRequest':
             return {
-              'requestId': 'test-id',
-              'requestFilePath': '/test/path',
+              'id': 'test-id',
+              'status': 0, // RequestStatus.inProgress
+              'path': '/test/path',
+              'registrationDate': DateTime.now().millisecondsSinceEpoch,
             };
           case 'getRequestStatus':
-            return 0; // RequestStatus.inProgress
+            return {
+              'id': 'test-id',
+              'status': 0, // RequestStatus.inProgress
+              'path': '/test/path',
+              'registrationDate': DateTime.now().millisecondsSinceEpoch,
+            };
           case 'getResponse':
             return {
-              'requestId': 'test-id',
-              'statusCode': 200,
-              'headers': {},
+              'id': 'test-id',
               'status': 1, // RequestStatus.completed
+              'path': '/test/path',
+              'registrationDate': DateTime.now().millisecondsSinceEpoch,
+              'responseJson': {
+                'requestId': 'test-id',
+                'statusCode': 200,
+                'headers': {},
+                'status': 1, // RequestStatus.completed
+              },
             };
           default:
             return null;
@@ -38,18 +51,19 @@ void main() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(channel, null);
   });
 
-  test('executeRequest', () async {
+  test('createRequest', () async {
     final result = await platform.createRequest({
       'url': 'https://example.com',
       'method': 'GET',
     });
-    expect(result['requestId'], 'test-id');
-    expect(result['requestFilePath'], '/test/path');
+    expect(result['id'], 'test-id');
+    expect(result['path'], '/test/path');
   });
 
   test('getRequestStatus', () async {
     final status = await platform.getRequestStatus('test-id');
-    expect(status, 0);
+    expect(status, isNotNull);
+    expect(status?['status'], 0);
   });
 
   test('getRequestStatus returns null when request not found', () async {
@@ -74,7 +88,7 @@ void main() {
   test('getResponse', () async {
     final response = await platform.getResponse('test-id');
     expect(response, isNotNull);
-    expect(response?['requestId'], 'test-id');
-    expect(response?['statusCode'], 200);
+    expect(response?['id'], 'test-id');
+    expect(response?['responseJson']?['statusCode'], 200);
   });
 }

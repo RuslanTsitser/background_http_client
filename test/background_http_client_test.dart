@@ -1,45 +1,100 @@
-import 'package:flutter_test/flutter_test.dart';
 import 'package:background_http_client/background_http_client.dart';
-import 'package:background_http_client/background_http_client_platform_interface.dart';
 import 'package:background_http_client/background_http_client_method_channel.dart';
+import 'package:background_http_client/background_http_client_platform_interface.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
-class MockBackgroundHttpClientPlatform
-    with MockPlatformInterfaceMixin
-    implements BackgroundHttpClientPlatform {
+class MockBackgroundHttpClientPlatform with MockPlatformInterfaceMixin implements BackgroundHttpClientPlatform {
   @override
-  Future<Map<String, dynamic>> executeRequest(
-      Map<String, dynamic> requestJson) async {
+  Future<Map<String, dynamic>> createRequest(Map<String, dynamic> requestJson) async {
     return {
-      'requestId': 'test-request-id',
-      'requestFilePath': '/path/to/request/file',
+      'id': 'test-request-id',
+      'status': RequestStatus.completed.index,
+      'path': '/path/to/request/file',
+      'registrationDate': DateTime.now().millisecondsSinceEpoch,
     };
   }
 
   @override
-  Future<int?> getRequestStatus(String requestId) async {
-    return RequestStatus.completed.index;
+  Future<Map<String, dynamic>?> getRequestStatus(String requestId) async {
+    return {
+      'id': requestId,
+      'status': RequestStatus.completed.index,
+      'path': '/path/to/request/file',
+      'registrationDate': DateTime.now().millisecondsSinceEpoch,
+    };
   }
 
   @override
   Future<Map<String, dynamic>?> getResponse(String requestId) async {
     return {
-      'requestId': requestId,
-      'statusCode': 200,
-      'headers': {},
+      'id': requestId,
       'status': RequestStatus.completed.index,
-      'responseFilePath': '/path/to/response/file',
+      'path': '/path/to/request/file',
+      'registrationDate': DateTime.now().millisecondsSinceEpoch,
+      'responseJson': {
+        'requestId': requestId,
+        'statusCode': 200,
+        'headers': {},
+        'status': RequestStatus.completed.index,
+        'responseFilePath': '/path/to/response/file',
+      },
     };
   }
 
   @override
-  Future<void> cancelRequest(String requestId) async {
-    // Mock implementation
+  Future<bool?> cancelRequest(String requestId) async {
+    return true;
   }
 
   @override
-  Future<void> deleteRequest(String requestId) async {
-    // Mock implementation
+  Future<bool?> deleteRequest(String requestId) async {
+    return true;
+  }
+
+  @override
+  Stream<String> getCompletedTasksStream() {
+    return const Stream.empty();
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getPendingTasks() async {
+    return [];
+  }
+
+  @override
+  Future<int> cancelAllTasks() async {
+    return 0;
+  }
+
+  @override
+  Future<Map<String, dynamic>> getQueueStats() async {
+    return {
+      'pendingCount': 0,
+      'activeCount': 0,
+      'maxConcurrent': 30,
+      'maxQueueSize': 10000,
+    };
+  }
+
+  @override
+  Future<bool> setMaxConcurrentTasks(int count) async {
+    return true;
+  }
+
+  @override
+  Future<bool> setMaxQueueSize(int size) async {
+    return true;
+  }
+
+  @override
+  Future<bool> syncQueueState() async {
+    return true;
+  }
+
+  @override
+  Future<bool> processQueue() async {
+    return true;
   }
 }
 
@@ -47,16 +102,17 @@ class MockBackgroundHttpClientPlatformForNullStatus
     with MockPlatformInterfaceMixin
     implements BackgroundHttpClientPlatform {
   @override
-  Future<Map<String, dynamic>> executeRequest(
-      Map<String, dynamic> requestJson) async {
+  Future<Map<String, dynamic>> createRequest(Map<String, dynamic> requestJson) async {
     return {
-      'requestId': 'test-request-id',
-      'requestFilePath': '/path/to/request/file',
+      'id': 'test-request-id',
+      'status': RequestStatus.inProgress.index,
+      'path': '/path/to/request/file',
+      'registrationDate': DateTime.now().millisecondsSinceEpoch,
     };
   }
 
   @override
-  Future<int?> getRequestStatus(String requestId) async {
+  Future<Map<String, dynamic>?> getRequestStatus(String requestId) async {
     return null;
   }
 
@@ -66,61 +122,108 @@ class MockBackgroundHttpClientPlatformForNullStatus
   }
 
   @override
-  Future<void> cancelRequest(String requestId) async {
-    // Mock implementation
+  Future<bool?> cancelRequest(String requestId) async {
+    return null;
   }
 
   @override
-  Future<void> deleteRequest(String requestId) async {
-    // Mock implementation
+  Future<bool?> deleteRequest(String requestId) async {
+    return null;
+  }
+
+  @override
+  Stream<String> getCompletedTasksStream() {
+    return const Stream.empty();
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getPendingTasks() async {
+    return [];
+  }
+
+  @override
+  Future<int> cancelAllTasks() async {
+    return 0;
+  }
+
+  @override
+  Future<Map<String, dynamic>> getQueueStats() async {
+    return {
+      'pendingCount': 0,
+      'activeCount': 0,
+      'maxConcurrent': 30,
+      'maxQueueSize': 10000,
+    };
+  }
+
+  @override
+  Future<bool> setMaxConcurrentTasks(int count) async {
+    return true;
+  }
+
+  @override
+  Future<bool> setMaxQueueSize(int size) async {
+    return true;
+  }
+
+  @override
+  Future<bool> syncQueueState() async {
+    return true;
+  }
+
+  @override
+  Future<bool> processQueue() async {
+    return true;
   }
 }
 
 void main() {
-  final BackgroundHttpClientPlatform initialPlatform =
-      BackgroundHttpClientPlatform.instance;
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  final BackgroundHttpClientPlatform initialPlatform = BackgroundHttpClientPlatform.instance;
 
   test('$MethodChannelBackgroundHttpClient is the default instance', () {
     expect(initialPlatform, isInstanceOf<MethodChannelBackgroundHttpClient>());
   });
 
-  test('executeRequest returns RequestInfo', () async {
-    final client = BackgroundHttpClient();
+  test('get returns TaskInfo', () async {
     final mockPlatform = MockBackgroundHttpClientPlatform();
     BackgroundHttpClientPlatform.instance = mockPlatform;
+    final client = BackgroundHttpClient();
 
-    final requestInfo = await client.get('https://example.com');
-    expect(requestInfo.requestId, 'test-request-id');
-    expect(requestInfo.requestFilePath, '/path/to/request/file');
+    final taskInfo = await client.get('https://example.com');
+    expect(taskInfo.id, 'test-request-id');
+    expect(taskInfo.path, '/path/to/request/file');
   });
 
-  test('getRequestStatus returns status', () async {
-    final client = BackgroundHttpClient();
+  test('getRequestStatus returns TaskInfo', () async {
     final mockPlatform = MockBackgroundHttpClientPlatform();
     BackgroundHttpClientPlatform.instance = mockPlatform;
+    final client = BackgroundHttpClient();
 
-    final status = await client.getRequestStatus('test-id');
-    expect(status, RequestStatus.completed);
+    final taskInfo = await client.getRequestStatus('test-id');
+    expect(taskInfo, isNotNull);
+    expect(taskInfo?.statusEnum, RequestStatus.completed);
   });
 
   test('getRequestStatus returns null when request not found', () async {
-    final client = BackgroundHttpClient();
     final mockPlatform = MockBackgroundHttpClientPlatformForNullStatus();
     BackgroundHttpClientPlatform.instance = mockPlatform;
+    final client = BackgroundHttpClient();
 
     final status = await client.getRequestStatus('non-existent-id');
     expect(status, isNull);
   });
 
-  test('getResponse returns HttpResponse', () async {
-    final client = BackgroundHttpClient();
+  test('getResponse returns TaskInfo with responseJson', () async {
     final mockPlatform = MockBackgroundHttpClientPlatform();
     BackgroundHttpClientPlatform.instance = mockPlatform;
+    final client = BackgroundHttpClient();
 
-    final response = await client.getResponse('test-id');
-    expect(response, isNotNull);
-    expect(response?.statusCode, 200);
-    expect(response?.status, RequestStatus.completed);
-    expect(response?.responseFilePath, '/path/to/response/file');
+    final taskInfo = await client.getResponse('test-id');
+    expect(taskInfo, isNotNull);
+    expect(taskInfo?.responseJson, isNotNull);
+    expect(taskInfo?.responseJson?['statusCode'], 200);
+    expect(taskInfo?.responseJson?['responseFilePath'], '/path/to/response/file');
   });
 }
