@@ -1,7 +1,7 @@
 import Flutter
 import Foundation
 
-/// Обработчик EventChannel для отправки событий о завершенных задачах
+/// EventChannel handler for sending events about completed tasks
 class TaskCompletedEventStreamHandler: NSObject, FlutterStreamHandler {
     private var eventSink: FlutterEventSink?
     
@@ -21,8 +21,8 @@ class TaskCompletedEventStreamHandler: NSObject, FlutterStreamHandler {
         return nil
     }
     
-    /// Отправляет событие о завершенной задаче
-    /// Вызывается из URLSessionDataSource или других мест
+    /// Sends an event about a completed task.
+    /// Called from URLSessionDataSource or other places.
     func sendCompletedTask(requestId: String) {
         DispatchQueue.main.async { [weak self] in
             self?.eventSink?(requestId)

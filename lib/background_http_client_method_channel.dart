@@ -5,13 +5,13 @@ import 'package:flutter/services.dart';
 
 import 'background_http_client_platform_interface.dart';
 
-/// Реализация [BackgroundHttpClientPlatform] используя method channels
+/// [BackgroundHttpClientPlatform] implementation using method channels
 class MethodChannelBackgroundHttpClient extends BackgroundHttpClientPlatform {
-  /// Method channel для взаимодействия с нативной платформой
+  /// Method channel for interaction with the native platform
   @visibleForTesting
   final methodChannel = const MethodChannel('background_http_client');
 
-  /// Event channel для получения событий о завершенных задачах
+  /// Event channel for receiving events about completed tasks
   @visibleForTesting
   final eventChannel = const EventChannel('background_http_client/task_completed');
 
@@ -42,7 +42,7 @@ class MethodChannelBackgroundHttpClient extends BackgroundHttpClientPlatform {
       }
       return Map<String, dynamic>.from(result);
     } on PlatformException catch (e) {
-      // Если задача не найдена, возвращаем null вместо ошибки
+      // If the task is not found, return null instead of throwing an error
       if (e.code == 'NOT_FOUND') {
         return null;
       }
@@ -62,7 +62,7 @@ class MethodChannelBackgroundHttpClient extends BackgroundHttpClientPlatform {
       }
       return Map<String, dynamic>.from(result);
     } on PlatformException catch (e) {
-      // Если задача не найдена, возвращаем null вместо ошибки
+      // If the task is not found, return null instead of throwing an error
       if (e.code == 'NOT_FOUND') {
         return null;
       }
@@ -79,7 +79,7 @@ class MethodChannelBackgroundHttpClient extends BackgroundHttpClientPlatform {
       );
       return result;
     } on PlatformException catch (e) {
-      // Если задача не найдена, возвращаем null
+      // If the task is not found, return null
       if (e.code == 'NOT_FOUND') {
         return null;
       }
@@ -96,7 +96,7 @@ class MethodChannelBackgroundHttpClient extends BackgroundHttpClientPlatform {
       );
       return result;
     } on PlatformException catch (e) {
-      // Если задача не найдена, возвращаем null
+      // If the task is not found, return null
       if (e.code == 'NOT_FOUND') {
         return null;
       }

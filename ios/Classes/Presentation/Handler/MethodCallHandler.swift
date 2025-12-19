@@ -1,7 +1,7 @@
 import Flutter
 import Foundation
 
-/// Обработчик вызовов методов от Flutter
+/// Handler for method calls from Flutter
 class MethodCallHandler {
     private let repository: TaskRepositoryImpl
     private let createRequestUseCase: CreateRequestUseCase
@@ -35,7 +35,7 @@ class MethodCallHandler {
             handleGetPendingTasks(call: call, result: result)
         case "cancelAllTasks":
             handleCancelAllTasks(call: call, result: result)
-        // Новые методы для управления очередью
+        // New methods for queue management
         case "getQueueStats":
             handleGetQueueStats(call: call, result: result)
         case "setMaxConcurrentTasks":
@@ -211,7 +211,7 @@ class MethodCallHandler {
     }
     
     private func handleSyncQueueState(call: FlutterMethodCall, result: @escaping FlutterResult) {
-        // На iOS синхронизация не требуется, так как мы используем actor
+        // On iOS, synchronization is not required because we use an actor
         result(true)
     }
     

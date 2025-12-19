@@ -9,7 +9,7 @@ import org.json.JSONObject
 import java.io.File
 
 /**
- * Data source для работы с файловым хранилищем
+ * Data source for working with file storage.
  */
 class FileStorageDataSource(private val context: Context) {
 
@@ -44,16 +44,16 @@ class FileStorageDataSource(private val context: Context) {
     }
 
     /**
-     * Сохраняет запрос в файл и возвращает информацию о задаче
+     * Saves a request to a file and returns task information.
      */
     fun saveRequest(request: HttpRequest, requestId: String, registrationDate: Long): TaskInfo {
-        // Сохраняем body в отдельный файл, если он есть
+        // Save body to a separate file if present
         if (request.body != null) {
             val bodyFile = File(bodiesDir, "$requestId.body")
             bodyFile.writeText(request.body)
         }
 
-        // Сохраняем запрос в JSON
+        // Save request as JSON
         val requestFile = File(requestsDir, "$requestId.json")
         val requestJson = JSONObject().apply {
             put("url", request.url)
@@ -81,7 +81,7 @@ class FileStorageDataSource(private val context: Context) {
         }
         requestFile.writeText(requestJson.toString())
 
-        // Сохраняем начальный статус
+        // Save initial status
         saveStatus(requestId, RequestStatus.IN_PROGRESS, registrationDate)
 
         return TaskInfo(
@@ -93,7 +93,7 @@ class FileStorageDataSource(private val context: Context) {
     }
 
     /**
-     * Загружает информацию о задаче
+     * Loads task information.
      */
     fun loadTaskInfo(requestId: String): TaskInfo? {
         val requestFile = File(requestsDir, "$requestId.json")
@@ -102,7 +102,7 @@ class FileStorageDataSource(private val context: Context) {
         }
 
         val status = loadStatus(requestId) ?: RequestStatus.IN_PROGRESS
-        // Получаем дату регистрации из файла статуса, если она там есть, иначе используем lastModified
+        // Get registration date from status file if present, otherwise use lastModified
         val registrationDate = loadRegistrationDate(requestId) ?: requestFile.lastModified()
 
         return TaskInfo(
@@ -114,7 +114,7 @@ class FileStorageDataSource(private val context: Context) {
     }
 
     /**
-     * Загружает дату регистрации из файла статуса
+     * Loads registration date from the status file.
      */
     private fun loadRegistrationDate(requestId: String): Long? {
         val statusFile = File(statusDir, "$requestId.json")
@@ -136,7 +136,7 @@ class FileStorageDataSource(private val context: Context) {
     }
 
     /**
-     * Загружает ответ задачи
+     * Loads task response.
      */
     fun loadTaskResponse(requestId: String): TaskInfo? {
         val taskInfo = loadTaskInfo(requestId) ?: return null
@@ -158,7 +158,7 @@ class FileStorageDataSource(private val context: Context) {
     }
 
     /**
-     * Сохраняет статус задачи
+     * Saves task status.
      */
     fun saveStatus(requestId: String, status: RequestStatus, startTime: Long? = null) {
         val statusFile = File(statusDir, "$requestId.json")
@@ -173,7 +173,7 @@ class FileStorageDataSource(private val context: Context) {
     }
 
     /**
-     * Загружает статус задачи
+     * Loads task status.
      */
     fun loadStatus(requestId: String): RequestStatus? {
         val statusFile = File(statusDir, "$requestId.json")
@@ -192,7 +192,7 @@ class FileStorageDataSource(private val context: Context) {
     }
 
     /**
-     * Сохраняет ответ от сервера
+     * Saves server response.
      */
     fun saveResponse(
         requestId: String,
@@ -215,43 +215,43 @@ class FileStorageDataSource(private val context: Context) {
         }
         responseFile.writeText(responseJson.toString())
 
-        // Обновляем статус
+        // Update status
         saveStatus(requestId, status)
     }
 
     /**
-     * Удаляет все файлы, связанные с задачей
+     * Deletes all files associated with a task.
      */
     fun deleteTaskFiles(requestId: String): Boolean {
         var deleted = true
 
-        // Удаляем файл запроса
+        // Delete request file
         File(requestsDir, "$requestId.json").takeIf { it.exists() }?.delete() ?: run { deleted = false }
 
-        // Удаляем файл body
+        // Delete body file
         File(bodiesDir, "$requestId.body").takeIf { it.exists() }?.delete()
 
-        // Удаляем файл ответа JSON
+        // Delete JSON response file
         File(responsesDir, "$requestId.json").takeIf { it.exists() }?.delete()
 
-        // Удаляем файл ответа (данные)
+        // Delete response data file
         File(responsesDir, "${requestId}_response.txt").takeIf { it.exists() }?.delete()
 
-        // Удаляем файл статуса
+        // Delete status file
         File(statusDir, "$requestId.json").takeIf { it.exists() }?.delete()
 
         return deleted
     }
 
     /**
-     * Проверяет существование задачи
+     * Checks whether a task exists.
      */
     fun taskExists(requestId: String): Boolean {
         return File(requestsDir, "$requestId.json").exists()
     }
 
     /**
-     * Получает список всех ID задач из файловой системы
+     * Gets a list of all task IDs from the file system.
      */
     fun getAllTaskIds(): List<String> {
         return requestsDir.listFiles()
@@ -261,7 +261,7 @@ class FileStorageDataSource(private val context: Context) {
     }
 
     /**
-     * Вспомогательная функция для преобразования JSONObject в Map
+     * Helper function for converting JSONObject to Map.
      */
     private fun JSONObject.toMap(): Map<String, Any> {
         val map = mutableMapOf<String, Any>()

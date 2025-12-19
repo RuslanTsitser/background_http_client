@@ -1,6 +1,6 @@
 import Foundation
 
-/// Data source для работы с URLSession и выполнения HTTP запросов
+/// Data source for working with URLSession and executing HTTP requests
 class URLSessionDataSource {
     private var activeTasks: [String: URLSessionDataTask] = [:]
     private var cancelledRequestIds = Set<String>()
@@ -8,11 +8,11 @@ class URLSessionDataSource {
     private lazy var session: URLSession = {
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = 30
-        config.timeoutIntervalForResource = 4 * 60 * 60 // 4 часа для больших файлов
+        config.timeoutIntervalForResource = 4 * 60 * 60 // 4 hours for large files
         return URLSession(configuration: config)
     }()
     
-    /// Выполняет HTTP запрос
+    /// Executes an HTTP request
     func executeRequest(
         requestId: String,
         url: URL,
@@ -27,12 +27,12 @@ class URLSessionDataSource {
         fileStorage: FileStorageDataSource,
         onCompleted: (() -> Void)? = nil
     ) async throws {
-        // Проверяем, не отменен ли запрос
+        // Check whether the request was cancelled
         if cancelledRequestIds.contains(requestId) {
             return
         }
         
-        // Устанавливаем статус IN_PROGRESS с сохранением времени начала
+        // Set IN_PROGRESS status and store the start time
         let currentStatus = fileStorage.loadStatus(requestId: requestId)
         if currentStatus == nil || currentStatus != .inProgress {
             let startTime = Int64(Date().timeIntervalSince1970 * 1000)
@@ -41,7 +41,7 @@ class URLSessionDataSource {
         
         var requestURL = url
         
-        // Добавляем query параметры
+        // Add query parameters
         if let queryParams = queryParameters, !queryParams.isEmpty {
             var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
             var queryItems: [URLQueryItem] = []
@@ -58,17 +58,17 @@ class URLSessionDataSource {
         request.httpMethod = method
         request.timeoutInterval = TimeInterval(timeout)
         
-        // Устанавливаем заголовки
+        // Set headers
         headers?.forEach { key, value in
             request.setValue(value, forHTTPHeaderField: key)
         }
         
-        // Устанавливаем User-Agent, если не указан явно
+        // Set User-Agent if it is not explicitly provided
         if request.value(forHTTPHeaderField: "User-Agent") == nil {
             request.setValue("BackgroundHttpClient/1.0", forHTTPHeaderField: "User-Agent")
         }
         
-        // Устанавливаем тело запроса
+        // Set request body
         let isMultipart = multipartFields != nil || multipartFiles != nil
         
         if isMultipart {
@@ -87,7 +87,7 @@ class URLSessionDataSource {
             }
         }
         
-        // Выполняем запрос
+        // Execute request
         let task = session.dataTask(with: request) { [weak self] data, response, error in
             guard let self = self else { return }
             
@@ -110,10 +110,10 @@ class URLSessionDataSource {
                     detailedError = errorDescription
                 }
                 
-                // Проверяем, является ли это ошибкой отсутствия интернета
+                // Check whether this is a "no internet" error
                 let isNoInternetError = (error as? URLError)?.code == .notConnectedToInternet
                 
-                // Сохраняем ошибку
+                // Save error
                 try? fileStorage.saveResponse(
                     requestId: requestId,
                     statusCode: 0,
@@ -124,18 +124,18 @@ class URLSessionDataSource {
                     error: detailedError
                 )
                 
-                // Не отправляем событие при ошибках - только при успешном завершении
-                // Но уведомляем о завершении через callback
+                // Do not send an event on errors – only on successful completion
+                // But still notify about completion via callback
                 onCompleted?()
                 
-                // Если это сетевая ошибка и есть попытки, повторяем
-                // НО: при отсутствии интернета не тратим попытки - ждем появления интернета
+                // If this is a network error and there are retries left, retry
+                // BUT: when there is no internet, do not consume retries – wait until the internet is back
                 if isNetworkError && retries > 0 {
                     if isNoInternetError {
-                        // При отсутствии интернета не тратим попытки, просто ждем
-                        // Повторяем с теми же retries
+                        // When there is no internet, do not consume retries, just wait
+                        // Retry with the same retries value
                         Task {
-                            try? await Task.sleep(nanoseconds: 30_000_000_000) // 30 секунд
+                            try? await Task.sleep(nanoseconds: 30_000_000_000) // 30 seconds
                             if !self.cancelledRequestIds.contains(requestId) {
                                 try? await self.executeRequest(
                                     requestId: requestId,
@@ -147,15 +147,15 @@ class URLSessionDataSource {
                                     timeout: timeout,
                                     multipartFields: multipartFields,
                                     multipartFiles: multipartFiles,
-                                    retries: retries, // Не уменьшаем retries при отсутствии интернета
+                                    retries: retries, // Do not decrease retries when there is no internet
                                     fileStorage: fileStorage
                                 )
                             }
                         }
                     } else {
-                        // При других сетевых ошибках тратим попытки
+                        // For other network errors we do consume retries
                         Task {
-                            try? await Task.sleep(nanoseconds: 30_000_000_000) // 30 секунд
+                            try? await Task.sleep(nanoseconds: 30_000_000_000) // 30 seconds
                             if !self.cancelledRequestIds.contains(requestId) {
                                 try? await self.executeRequest(
                                     requestId: requestId,
@@ -167,7 +167,7 @@ class URLSessionDataSource {
                                     timeout: timeout,
                                     multipartFields: multipartFields,
                                     multipartFiles: multipartFiles,
-                                    retries: retries - 1, // Уменьшаем retries при других ошибках
+                                    retries: retries - 1, // Decrease retries for other errors
                                     fileStorage: fileStorage
                                 )
                             }
@@ -187,13 +187,13 @@ class URLSessionDataSource {
                     status: .failed,
                     error: "Invalid response: response is not HTTPURLResponse"
                 )
-                // Не отправляем событие при ошибках - только при успешном завершении
-                // Но уведомляем о завершении через callback
+                // Do not send an event on errors – only on successful completion
+                // But still notify about completion via callback
                 onCompleted?()
                 return
             }
             
-            // Получаем заголовки
+            // Read headers
             var responseHeaders: [String: String] = [:]
             for (key, value) in httpResponse.allHeaderFields {
                 if let keyString = key as? String, let valueString = value as? String {
@@ -201,7 +201,7 @@ class URLSessionDataSource {
                 }
             }
             
-            // Обрабатываем тело ответа
+            // Process response body
             var responseBody: String? = nil
             var responseFilePath: String? = nil
             
@@ -222,7 +222,7 @@ class URLSessionDataSource {
             
             let status: RequestStatus = (httpResponse.statusCode >= 200 && httpResponse.statusCode < 300) ? .completed : .failed
             
-            // Сохраняем ответ
+            // Save response
             try? fileStorage.saveResponse(
                 requestId: requestId,
                 statusCode: httpResponse.statusCode,
@@ -233,15 +233,15 @@ class URLSessionDataSource {
                 error: status == .failed ? (responseBody ?? "Request failed") : nil
             )
             
-            // Уведомляем о завершении через callback
+            // Notify completion via callback
             onCompleted?()
             
-            // Отправляем событие только при успешном завершении
+            // Send event only on successful completion
             if status == .completed {
                 TaskCompletedEventStreamHandler.shared.sendCompletedTask(requestId: requestId)
             }
             
-            // Очищаем из множества отмененных запросов
+            // Remove from the set of cancelled requests
             self.cancelledRequestIds.remove(requestId)
         }
         
@@ -249,7 +249,7 @@ class URLSessionDataSource {
         task.resume()
     }
     
-    /// Отменяет задачу
+    /// Cancels a task
     func cancelTask(requestId: String) {
         cancelledRequestIds.insert(requestId)
         if let task = activeTasks[requestId] {
@@ -258,7 +258,7 @@ class URLSessionDataSource {
         }
     }
     
-    /// Удаляет задачу
+    /// Deletes a task
     func deleteTask(requestId: String) {
         cancelTask(requestId: requestId)
     }
@@ -272,7 +272,7 @@ class URLSessionDataSource {
         let lineFeed = "\r\n".data(using: .utf8)!
         let boundaryData = "--\(boundary)".data(using: .utf8)!
         
-        // Добавляем поля
+        // Add fields
         multipartFields?.forEach { key, value in
             bodyData.append(boundaryData)
             bodyData.append(lineFeed)
@@ -283,7 +283,7 @@ class URLSessionDataSource {
             bodyData.append(lineFeed)
         }
         
-        // Добавляем файлы
+        // Add files
         multipartFiles?.forEach { fieldName, file in
             guard FileManager.default.fileExists(atPath: file.filePath),
                   let fileData = try? Data(contentsOf: URL(fileURLWithPath: file.filePath)) else {
@@ -304,7 +304,7 @@ class URLSessionDataSource {
             bodyData.append(lineFeed)
         }
         
-        // Завершающий boundary
+        // Closing boundary
         bodyData.append("--\(boundary)--".data(using: .utf8)!)
         bodyData.append(lineFeed)
         
@@ -326,13 +326,13 @@ class URLSessionDataSource {
         return saveResponseToFile(requestId: requestId, data: data)
     }
     
-    /// Проверяет, находится ли задача в ожидании
+    /// Checks whether a task is pending
     func isTaskPending(requestId: String) -> Bool {
         return activeTasks[requestId] != nil
     }
     
-    /// Отменяет все задачи
-    /// Возвращает количество отмененных задач
+    /// Cancels all tasks
+    /// Returns the number of cancelled tasks
     func cancelAllTasks() -> Int {
         let count = activeTasks.count
         for (requestId, task) in activeTasks {

@@ -1,10 +1,10 @@
 import Foundation
 
-/// Менеджер очереди задач для управления количеством одновременных запросов
+/// Task queue manager for controlling the number of concurrent requests.
 ///
-/// Решает проблему зависания при регистрации большого числа задач в URLSession.
-/// Вместо того чтобы сразу запускать все задачи, TaskQueueManager держит их в своей очереди
-/// и запускает порциями.
+/// Solves the problem of hanging when registering a large number of tasks in URLSession.
+/// Instead of starting all tasks at once, TaskQueueManager keeps them in its own queue
+/// and starts them in batches.
 actor TaskQueueManager {
     
     // MARK: - Singleton
@@ -19,19 +19,19 @@ actor TaskQueueManager {
     
     // MARK: - Properties
     
-    /// Очередь ожидающих задач (только requestId, данные на диске)
+    /// Queue of pending tasks (only requestId, data is on disk)
     private var pendingQueue: [String] = []
     
-    /// Множество активных задач
+    /// Set of active tasks
     private var activeTasks: Set<String> = []
     
-    /// Callback для запуска задачи (будет установлен репозиторием)
+    /// Callback for starting a task (set by the repository)
     private var executeTaskCallback: ((String) async -> Void)?
     
-    /// Максимальное количество одновременных задач
+    /// Maximum number of concurrent tasks
     private(set) var maxConcurrentTasks: Int
     
-    /// Максимальный размер очереди
+    /// Maximum queue size
     private(set) var maxQueueSize: Int
     
     // MARK: - Initialization
@@ -40,7 +40,7 @@ actor TaskQueueManager {
         self.maxConcurrentTasks = defaultMaxConcurrentTasks
         self.maxQueueSize = defaultMaxQueueSize
         
-        // Восстанавливаем очередь при инициализации (синхронно)
+        // Restore queue on initialization (synchronously)
         if let restored = Self.loadQueueFromDisk() {
             self.pendingQueue = restored
             print("[TaskQueueManager] Restored \(restored.count) tasks from disk")
@@ -49,22 +49,22 @@ actor TaskQueueManager {
     
     // MARK: - Public Methods
     
-    /// Устанавливает callback для выполнения задачи
+    /// Sets callback for executing a task
     func setExecuteCallback(_ callback: @escaping (String) async -> Void) {
         self.executeTaskCallback = callback
     }
     
-    /// Добавляет задачу в очередь
-    /// - Parameter requestId: ID задачи
-    /// - Returns: true если задача добавлена, false если очередь переполнена
+    /// Adds a task to the queue.
+    /// - Parameter requestId: task ID
+    /// - Returns: true if the task was added, false if the queue is full
     func enqueue(_ requestId: String) async -> Bool {
-        // Проверяем лимит очереди
+        // Check queue size limit
         guard pendingQueue.count < maxQueueSize else {
             print("[TaskQueueManager] Queue is full (\(maxQueueSize)), rejecting task: \(requestId)")
             return false
         }
         
-        // Проверяем, не добавлена ли уже эта задача
+        // Check that this task has not already been added
         guard !pendingQueue.contains(requestId) && !activeTasks.contains(requestId) else {
             print("[TaskQueueManager] Task already in queue or active: \(requestId)")
             return true
@@ -75,13 +75,13 @@ actor TaskQueueManager {
         
         print("[TaskQueueManager] Task enqueued: \(requestId), queue size: \(pendingQueue.count), active: \(activeTasks.count)")
         
-        // Пытаемся запустить задачи
+        // Try to start tasks
         await processQueueInternal()
         
         return true
     }
     
-    /// Вызывается при завершении задачи (успех или ошибка)
+    /// Called when a task is completed (success or error)
     func onTaskCompleted(_ requestId: String) async {
         if activeTasks.remove(requestId) != nil {
             print("[TaskQueueManager] Task completed: \(requestId), active: \(activeTasks.count)")
@@ -89,7 +89,7 @@ actor TaskQueueManager {
         }
     }
     
-    /// Удаляет задачу из очереди (если она ещё не запущена)
+    /// Removes a task from the queue (if it has not been started yet)
     func removeFromQueue(_ requestId: String) -> Bool {
         if let index = pendingQueue.firstIndex(of: requestId) {
             pendingQueue.remove(at: index)
@@ -100,22 +100,22 @@ actor TaskQueueManager {
         return false
     }
     
-    /// Проверяет, находится ли задача в очереди
+    /// Checks whether a task is in the queue
     func isTaskQueued(_ requestId: String) -> Bool {
         return pendingQueue.contains(requestId)
     }
     
-    /// Проверяет, активна ли задача
+    /// Checks whether a task is active
     func isTaskActive(_ requestId: String) -> Bool {
         return activeTasks.contains(requestId)
     }
     
-    /// Проверяет, находится ли задача в очереди или активна
+    /// Checks whether a task is pending or active
     func isTaskPendingOrActive(_ requestId: String) -> Bool {
         return isTaskQueued(requestId) || isTaskActive(requestId)
     }
     
-    /// Возвращает статистику очереди
+    /// Returns queue statistics
     func getQueueStats() -> QueueStats {
         return QueueStats(
             pendingCount: pendingQueue.count,
@@ -125,7 +125,7 @@ actor TaskQueueManager {
         )
     }
     
-    /// Устанавливает максимальное количество одновременных задач
+    /// Sets the maximum number of concurrent tasks
     func setMaxConcurrentTasks(_ count: Int) async {
         guard count >= 1 else {
             print("[TaskQueueManager] maxConcurrentTasks must be at least 1")
@@ -133,11 +133,11 @@ actor TaskQueueManager {
         }
         maxConcurrentTasks = count
         
-        // Если увеличили лимит, пытаемся запустить дополнительные задачи
+        // If the limit was increased, try to start additional tasks
         await processQueueInternal()
     }
     
-    /// Устанавливает максимальный размер очереди
+    /// Sets the maximum queue size
     func setMaxQueueSize(_ size: Int) {
         guard size >= 1 else {
             print("[TaskQueueManager] maxQueueSize must be at least 1")
@@ -146,7 +146,7 @@ actor TaskQueueManager {
         maxQueueSize = size
     }
     
-    /// Очищает всю очередь
+    /// Clears the entire queue
     func clearAll() -> Int {
         let totalCount = pendingQueue.count + activeTasks.count
         
@@ -158,7 +158,7 @@ actor TaskQueueManager {
         return totalCount
     }
     
-    /// Принудительно обрабатывает очередь
+    /// Forces queue processing
     func processQueue() async {
         await processQueueInternal()
     }
@@ -172,7 +172,7 @@ actor TaskQueueManager {
             
             print("[TaskQueueManager] Started task: \(requestId), active: \(activeTasks.count), pending: \(pendingQueue.count)")
             
-            // Запускаем задачу через callback
+            // Start the task via callback
             if let callback = executeTaskCallback {
                 Task {
                     await callback(requestId)
@@ -180,7 +180,7 @@ actor TaskQueueManager {
             }
         }
         
-        // Сохраняем очередь после изменений
+        // Save queue after changes
         saveQueueToDisk()
     }
     
@@ -190,7 +190,7 @@ actor TaskQueueManager {
         let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         let dirURL = documentsURL.appendingPathComponent("background_http_client", isDirectory: true)
         
-        // Создаём директорию, если не существует
+        // Create directory if it does not exist
         try? FileManager.default.createDirectory(at: dirURL, withIntermediateDirectories: true)
         
         return dirURL.appendingPathComponent(queueFileName)

@@ -1,11 +1,11 @@
 import Foundation
 
-/// Информация о задаче в нативном HTTP сервисе
+/// Information about a task in the native HTTP service
 struct TaskInfo {
     let id: String
     let status: RequestStatus
     let path: String
-    let registrationDate: Int64 // timestamp в миллисекундах
+    let registrationDate: Int64 // timestamp in milliseconds
     let responseJson: [String: Any]?
 }
 

@@ -14,11 +14,11 @@ import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.CopyOnWriteArraySet
 
 /**
- * Менеджер очереди задач для управления количеством одновременных запросов
- * 
- * Решает проблему зависания при регистрации большого числа задач в WorkManager.
- * Вместо того чтобы сразу регистрировать все задачи в WorkManager, 
- * TaskQueueManager держит их в своей очереди и запускает порциями.
+ * Task queue manager for controlling the number of concurrent requests.
+ *
+ * Solves the problem of hangs when registering a large number of tasks in WorkManager.
+ * Instead of registering all tasks in WorkManager at once,
+ * TaskQueueManager keeps them in its own queue and starts them in batches.
  */
 class TaskQueueManager(private val context: Context) {
     
@@ -40,19 +40,19 @@ class TaskQueueManager(private val context: Context) {
     
     private val workManager = WorkManagerDataSource(context)
     
-    // Очередь ожидающих задач (только requestId, данные на диске)
+    // Queue of pending tasks (only requestId, data is on disk)
     private val pendingQueue = ConcurrentLinkedQueue<String>()
     
-    // Множество активных задач (запущенных в WorkManager)
+    // Set of active tasks (started in WorkManager)
     private val activeTasks = CopyOnWriteArraySet<String>()
     
-    // Mutex для синхронизации операций с очередью
+    // Mutex for synchronizing queue operations
     private val queueMutex = Mutex()
     
-    // Корутина для фоновых операций
+    // Coroutine scope for background operations
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     
-    // Настройки
+    // Settings
     @Volatile
     var maxConcurrentTasks: Int = DEFAULT_MAX_CONCURRENT_TASKS
         private set
@@ -61,7 +61,7 @@ class TaskQueueManager(private val context: Context) {
     var maxQueueSize: Int = DEFAULT_MAX_QUEUE_SIZE
         private set
     
-    // Файл для персистентного хранения очереди
+    // File for persistent queue storage
     private val queueFile: File
         get() {
             val dir = File(context.filesDir, "background_http_client")
@@ -70,23 +70,23 @@ class TaskQueueManager(private val context: Context) {
         }
     
     init {
-        // Восстанавливаем очередь при инициализации
+        // Restore queue on initialization
         restoreQueue()
     }
     
     /**
-     * Добавляет задачу в очередь
-     * @param requestId ID задачи
-     * @return true если задача добавлена, false если очередь переполнена
+     * Adds a task to the queue.
+     * @param requestId task ID
+     * @return true if the task was added, false if the queue is full
      */
     suspend fun enqueue(requestId: String): Boolean = queueMutex.withLock {
-        // Проверяем, не превышен ли лимит очереди
+        // Check that the queue size limit is not exceeded
         if (pendingQueue.size >= maxQueueSize) {
             Log.w(TAG, "Queue is full ($maxQueueSize), rejecting task: $requestId")
             return@withLock false
         }
         
-        // Проверяем, не добавлена ли уже эта задача
+        // Check that this task has not already been added
         if (pendingQueue.contains(requestId) || activeTasks.contains(requestId)) {
             Log.d(TAG, "Task already in queue or active: $requestId")
             return@withLock true
@@ -97,14 +97,14 @@ class TaskQueueManager(private val context: Context) {
         
         Log.d(TAG, "Task enqueued: $requestId, queue size: ${pendingQueue.size}, active: ${activeTasks.size}")
         
-        // Пытаемся запустить задачи
+        // Try to start tasks
         processQueueInternal()
         
         return@withLock true
     }
     
     /**
-     * Вызывается при завершении задачи (успех или ошибка)
+     * Called when a task is completed (success or error).
      */
     suspend fun onTaskCompleted(requestId: String) = queueMutex.withLock {
         if (activeTasks.remove(requestId)) {
@@ -114,7 +114,7 @@ class TaskQueueManager(private val context: Context) {
     }
     
     /**
-     * Удаляет задачу из очереди (если она ещё не запущена)
+     * Removes a task from the queue (if it has not been started yet).
      */
     suspend fun removeFromQueue(requestId: String): Boolean = queueMutex.withLock {
         val removed = pendingQueue.remove(requestId)
@@ -126,7 +126,7 @@ class TaskQueueManager(private val context: Context) {
     }
     
     /**
-     * Проверяет, находится ли задача в очереди или активна
+     * Checks whether a task is pending or active.
      */
     fun isTaskQueued(requestId: String): Boolean {
         return pendingQueue.contains(requestId)
@@ -141,7 +141,7 @@ class TaskQueueManager(private val context: Context) {
     }
     
     /**
-     * Возвращает статистику очереди
+     * Returns queue statistics.
      */
     fun getQueueStats(): QueueStats {
         return QueueStats(
@@ -153,7 +153,7 @@ class TaskQueueManager(private val context: Context) {
     }
     
     /**
-     * Устанавливает максимальное количество одновременных задач
+     * Sets the maximum number of concurrent tasks.
      */
     suspend fun setMaxConcurrentTasks(count: Int) {
         if (count < 1) {
@@ -161,14 +161,14 @@ class TaskQueueManager(private val context: Context) {
         }
         maxConcurrentTasks = count
         
-        // Если увеличили лимит, пытаемся запустить дополнительные задачи
+        // If the limit was increased, try to start additional tasks
         queueMutex.withLock {
             processQueueInternal()
         }
     }
     
     /**
-     * Устанавливает максимальный размер очереди
+     * Sets the maximum queue size.
      */
     fun setMaxQueueSize(size: Int) {
         if (size < 1) {
@@ -178,12 +178,12 @@ class TaskQueueManager(private val context: Context) {
     }
     
     /**
-     * Очищает всю очередь и отменяет активные задачи
+     * Clears the entire queue and cancels active tasks.
      */
     suspend fun clearAll(): Int = queueMutex.withLock {
         val totalCount = pendingQueue.size + activeTasks.size
         
-        // Отменяем активные задачи в WorkManager
+        // Cancel active tasks in WorkManager
         for (requestId in activeTasks) {
             workManager.cancelRequest(requestId)
         }
@@ -197,13 +197,13 @@ class TaskQueueManager(private val context: Context) {
     }
     
     /**
-     * Принудительно обрабатывает очередь
+     * Forces queue processing.
      */
     suspend fun processQueue() = queueMutex.withLock {
         processQueueInternal()
     }
     
-    // Внутренний метод обработки очереди (должен вызываться под mutex)
+    // Internal queue processing method (must be called under mutex)
     private fun processQueueInternal() {
         while (activeTasks.size < maxConcurrentTasks && pendingQueue.isNotEmpty()) {
             val requestId = pendingQueue.poll() ?: break
@@ -214,11 +214,11 @@ class TaskQueueManager(private val context: Context) {
             Log.d(TAG, "Started task: $requestId, active: ${activeTasks.size}, pending: ${pendingQueue.size}")
         }
         
-        // Сохраняем очередь после изменений
+        // Persist queue after changes
         saveQueueAsync()
     }
     
-    // Сохраняет очередь на диск асинхронно
+    // Persists the queue to disk asynchronously
     private fun saveQueueAsync() {
         scope.launch {
             try {
@@ -231,7 +231,7 @@ class TaskQueueManager(private val context: Context) {
         }
     }
     
-    // Восстанавливает очередь с диска
+    // Restores the queue from disk
     private fun restoreQueue() {
         try {
             if (!queueFile.exists()) {
@@ -253,7 +253,7 @@ class TaskQueueManager(private val context: Context) {
             
             Log.d(TAG, "Restored $restoredCount tasks from disk")
             
-            // Запускаем обработку восстановленной очереди
+            // Start processing of the restored queue
             scope.launch {
                 queueMutex.withLock {
                     processQueueInternal()
@@ -265,13 +265,13 @@ class TaskQueueManager(private val context: Context) {
     }
     
     /**
-     * Синхронизирует состояние очереди с реальным состоянием задач
-     * Вызывается для очистки "зависших" задач
+     * Synchronizes the queue state with the actual task state.
+     * Called to clean up "stuck" tasks.
      */
     suspend fun syncQueueState(fileStorage: FileStorageDataSource) = queueMutex.withLock {
         val tasksToRemove = mutableListOf<String>()
         
-        // Проверяем активные задачи
+        // Check active tasks
         for (requestId in activeTasks) {
             val workState = workManager.getWorkState(requestId, forceRefresh = true)
             when (workState) {
@@ -280,20 +280,20 @@ class TaskQueueManager(private val context: Context) {
                     tasksToRemove.add(requestId)
                 }
                 WorkManagerDataSource.WorkStateResult.NOT_FOUND -> {
-                    // Задача потеряна, перезапускаем
+                    // Task is lost, re-enqueue
                     Log.w(TAG, "Task lost in WorkManager, re-enqueueing: $requestId")
                     workManager.enqueueRequest(requestId)
                 }
                 WorkManagerDataSource.WorkStateResult.IN_PROGRESS -> {
-                    // Всё OK
+                    // Everything OK
                 }
             }
         }
         
-        // Удаляем завершённые из активных
+        // Remove completed from active
         tasksToRemove.forEach { activeTasks.remove(it) }
         
-        // Проверяем pending задачи - возможно файлы запросов удалены
+        // Check pending tasks – request files may have been deleted
         val pendingToRemove = mutableListOf<String>()
         for (requestId in pendingQueue) {
             if (!fileStorage.taskExists(requestId)) {

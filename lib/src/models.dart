@@ -1,24 +1,24 @@
-/// Статусы выполнения HTTP запроса
+/// HTTP request execution statuses
 enum RequestStatus {
-  /// Запрос в процессе выполнения
+  /// Request is in progress
   inProgress,
 
-  /// Получен ответ от сервера
+  /// Response received from the server
   completed,
 
-  /// Запрос завершился с ошибкой
+  /// Request finished with an error
   failed,
 }
 
-/// Модель для multipart файла
+/// Model for a multipart file
 class MultipartFile {
-  /// Путь к файлу
+  /// File path
   final String filePath;
 
-  /// Имя файла (опционально)
+  /// File name (optional)
   final String? filename;
 
-  /// MIME тип файла (опционально)
+  /// MIME type (optional)
   final String? contentType;
 
   MultipartFile({
@@ -44,45 +44,45 @@ class MultipartFile {
   }
 }
 
-/// Модель HTTP запроса
+/// HTTP request model
 class HttpRequest {
-  /// URL для запроса
+  /// URL for the request
   final String url;
 
-  /// HTTP метод (GET, POST, PUT, DELETE, PATCH, HEAD)
+  /// HTTP method (GET, POST, PUT, DELETE, PATCH, HEAD)
   final String method;
 
-  /// Заголовки запроса
+  /// Request headers
   final Map<String, String>? headers;
 
-  /// Тело запроса (для POST, PUT, PATCH)
+  /// Request body (for POST, PUT, PATCH)
   final String? body;
 
-  /// Query параметры
+  /// Query parameters
   final Map<String, dynamic>? queryParameters;
 
-  /// Таймаут запроса в секундах
+  /// Request timeout in seconds
   final int? timeout;
 
-  /// Multipart поля (для multipart/form-data)
+  /// Multipart fields (for multipart/form-data)
   final Map<String, String>? multipartFields;
 
-  /// Multipart файлы (для multipart/form-data)
+  /// Multipart files (for multipart/form-data)
   final Map<String, MultipartFile>? multipartFiles;
 
-  /// Кастомный ID запроса (опционально). Если не указан, будет сгенерирован автоматически
+  /// Custom request ID (optional). If not provided, it will be generated automatically
   final String? requestId;
 
-  /// Количество повторных попыток при ошибках (0-10, по умолчанию 0)
-  /// Используется экспоненциальная задержка между попытками
+  /// Number of retry attempts on errors (0-10, default 0)
+  /// Uses exponential backoff between attempts
   final int? retries;
 
-  /// Запас времени в секундах для определения зависших запросов в процессе выполнения
-  /// По умолчанию 60 секунд. Запрос считается зависшим, если прошло больше (timeout + stuckTimeoutBuffer)
+  /// Buffer time in seconds to detect stuck requests during execution
+  /// Default is 60 seconds. A request is considered stuck if more than (timeout + stuckTimeoutBuffer) has passed.
   final int? stuckTimeoutBuffer;
 
-  /// Максимальное время ожидания в очереди в секундах
-  /// По умолчанию 600 секунд (10 минут). Запрос считается зависшим в очереди, если прошло больше этого времени
+  /// Maximum waiting time in the queue in seconds
+  /// Default is 600 seconds (10 minutes). A request is considered stuck in the queue if more than this time has passed.
   final int? queueTimeout;
 
   HttpRequest({
@@ -100,7 +100,7 @@ class HttpRequest {
     this.queueTimeout,
   });
 
-  /// Создает объект из JSON
+  /// Creates an object from JSON
   factory HttpRequest.fromJson(Map<String, dynamic> json) {
     Map<String, MultipartFile>? multipartFiles;
     if (json['multipartFiles'] != null) {
@@ -131,7 +131,7 @@ class HttpRequest {
     );
   }
 
-  /// Преобразует объект в JSON
+  /// Converts the object to JSON
   Map<String, dynamic> toJson() {
     Map<String, dynamic>? multipartFilesJson;
     if (multipartFiles != null) {
@@ -158,27 +158,27 @@ class HttpRequest {
   }
 }
 
-/// Модель HTTP ответа
+/// HTTP response model
 class HttpResponse {
-  /// ID запроса
+  /// Request ID
   final String requestId;
 
-  /// Статус код ответа
+  /// Response status code
   final int statusCode;
 
-  /// Заголовки ответа
+  /// Response headers
   final Map<String, String> headers;
 
-  /// Тело ответа (если небольшое)
+  /// Response body (if small)
   final String? body;
 
-  /// Путь к файлу с ответом
+  /// Path to the response file
   final String? responseFilePath;
 
-  /// Статус запроса
+  /// Request status
   final RequestStatus status;
 
-  /// Сообщение об ошибке (если есть)
+  /// Error message (if any)
   final String? error;
 
   HttpResponse({
@@ -191,7 +191,7 @@ class HttpResponse {
     this.error,
   });
 
-  /// Создает объект из JSON
+  /// Creates an object from JSON
   factory HttpResponse.fromJson(Map<String, dynamic> json) {
     return HttpResponse(
       requestId: json['requestId'] as String,
@@ -206,7 +206,7 @@ class HttpResponse {
     );
   }
 
-  /// Преобразует объект в JSON
+  /// Converts the object to JSON
   Map<String, dynamic> toJson() {
     return {
       'requestId': requestId,
@@ -220,12 +220,12 @@ class HttpResponse {
   }
 }
 
-/// Информация о запросе (ID и путь к файлу запроса)
+/// Information about a request (ID and path to the request file)
 class RequestInfo {
-  /// Уникальный ID запроса
+  /// Unique request ID
   final String requestId;
 
-  /// Путь к файлу с данными запроса
+  /// Path to the file with request data
   final String requestFilePath;
 
   RequestInfo({
@@ -233,7 +233,7 @@ class RequestInfo {
     required this.requestFilePath,
   });
 
-  /// Создает объект из JSON
+  /// Creates an object from JSON
   factory RequestInfo.fromJson(Map<String, dynamic> json) {
     return RequestInfo(
       requestId: json['requestId'] as String,
@@ -241,7 +241,7 @@ class RequestInfo {
     );
   }
 
-  /// Преобразует объект в JSON
+  /// Converts the object to JSON
   Map<String, dynamic> toJson() {
     return {
       'requestId': requestId,
@@ -250,21 +250,21 @@ class RequestInfo {
   }
 }
 
-/// Информация о задаче в нативном HTTP сервисе
+/// Information about a task in the native HTTP service
 class TaskInfo {
-  /// Уникальный ID задачи
+  /// Unique task ID
   final String id;
 
-  /// Статус задачи (индекс в enum RequestStatus)
+  /// Task status (index in the RequestStatus enum)
   final int status;
 
-  /// Путь к файлу с данными задачи
+  /// Path to the file with task data
   final String path;
 
-  /// Дата регистрации задачи в нативном HTTP сервисе (timestamp в миллисекундах)
+  /// Task registration date in the native HTTP service (timestamp in milliseconds)
   final int registrationDate;
 
-  /// JSON ответа (только для getResponse, опционально)
+  /// Response JSON (only for getResponse, optional)
   final Map<String, dynamic>? responseJson;
 
   TaskInfo({
@@ -275,7 +275,7 @@ class TaskInfo {
     this.responseJson,
   });
 
-  /// Создает объект из JSON
+  /// Creates an object from JSON
   factory TaskInfo.fromJson(Map<String, dynamic> json) {
     return TaskInfo(
       id: json['id'] as String,
@@ -288,7 +288,7 @@ class TaskInfo {
     );
   }
 
-  /// Преобразует объект в JSON
+  /// Converts the object to JSON
   Map<String, dynamic> toJson() {
     return {
       'id': id,
@@ -299,19 +299,19 @@ class TaskInfo {
     };
   }
 
-  /// Получает статус как enum
+  /// Gets status as enum
   RequestStatus get statusEnum => RequestStatus.values[status];
 
-  /// Получает дату регистрации как DateTime
+  /// Gets registration date as DateTime
   DateTime get registrationDateTime => DateTime.fromMillisecondsSinceEpoch(registrationDate);
 }
 
-/// Информация о задаче в ожидании
+/// Information about a pending task
 class PendingTask {
-  /// Уникальный ID задачи
+  /// Unique task ID
   final String requestId;
 
-  /// Дата регистрации задачи (timestamp в миллисекундах)
+  /// Task registration date (timestamp in milliseconds)
   final int registrationDate;
 
   PendingTask({
@@ -319,7 +319,7 @@ class PendingTask {
     required this.registrationDate,
   });
 
-  /// Создает объект из JSON
+  /// Creates an object from JSON
   factory PendingTask.fromJson(Map<String, dynamic> json) {
     return PendingTask(
       requestId: json['requestId'] as String,
@@ -327,7 +327,7 @@ class PendingTask {
     );
   }
 
-  /// Преобразует объект в JSON
+  /// Converts the object to JSON
   Map<String, dynamic> toJson() {
     return {
       'requestId': requestId,
@@ -335,22 +335,22 @@ class PendingTask {
     };
   }
 
-  /// Получает дату регистрации как DateTime
+  /// Gets registration date as DateTime
   DateTime get registrationDateTime => DateTime.fromMillisecondsSinceEpoch(registrationDate);
 }
 
-/// Статистика очереди задач
+/// Task queue statistics
 class QueueStats {
-  /// Количество задач в очереди (ожидающих выполнения)
+  /// Number of tasks in the queue (waiting to be executed)
   final int pendingCount;
 
-  /// Количество активных задач (выполняющихся прямо сейчас)
+  /// Number of active tasks (currently executing)
   final int activeCount;
 
-  /// Максимальное количество одновременных задач
+  /// Maximum number of concurrent tasks
   final int maxConcurrent;
 
-  /// Максимальный размер очереди
+  /// Maximum queue size
   final int maxQueueSize;
 
   QueueStats({
@@ -360,7 +360,7 @@ class QueueStats {
     required this.maxQueueSize,
   });
 
-  /// Создает объект из JSON
+  /// Creates an object from JSON
   factory QueueStats.fromJson(Map<String, dynamic> json) {
     return QueueStats(
       pendingCount: json['pendingCount'] as int? ?? 0,
@@ -370,7 +370,7 @@ class QueueStats {
     );
   }
 
-  /// Преобразует объект в JSON
+  /// Converts the object to JSON
   Map<String, dynamic> toJson() {
     return {
       'pendingCount': pendingCount,
@@ -380,13 +380,13 @@ class QueueStats {
     };
   }
 
-  /// Общее количество задач (в очереди + активные)
+  /// Total number of tasks (in the queue + active)
   int get totalCount => pendingCount + activeCount;
 
-  /// Количество доступных слотов для новых задач
+  /// Number of available slots for new tasks
   int get availableSlots => maxConcurrent - activeCount;
 
-  /// Заполнена ли очередь
+  /// Whether the queue is full
   bool get isQueueFull => pendingCount >= maxQueueSize;
 
   @override

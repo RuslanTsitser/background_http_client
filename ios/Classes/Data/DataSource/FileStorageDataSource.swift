@@ -1,6 +1,6 @@
 import Foundation
 
-/// Data source для работы с файловым хранилищем
+/// Data source for working with file storage
 class FileStorageDataSource {
     private let storageDir: URL
     
@@ -8,7 +8,7 @@ class FileStorageDataSource {
         let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         storageDir = documentsURL.appendingPathComponent("background_http_client", isDirectory: true)
         
-        // Создаем директории если их нет
+        // Create directories if they do not exist
         try? FileManager.default.createDirectory(at: storageDir, withIntermediateDirectories: true)
         try? FileManager.default.createDirectory(at: requestsDir, withIntermediateDirectories: true)
         try? FileManager.default.createDirectory(at: responsesDir, withIntermediateDirectories: true)
@@ -32,15 +32,15 @@ class FileStorageDataSource {
         storageDir.appendingPathComponent("request_bodies", isDirectory: true)
     }
     
-    /// Сохраняет запрос в файл и возвращает информацию о задаче
+    /// Saves a request to a file and returns task information
     func saveRequest(request: HttpRequest, requestId: String, registrationDate: Int64) throws -> TaskInfo {
-        // Сохраняем body в отдельный файл, если он есть
+        // Save body to a separate file if present
         if let body = request.body, let bodyData = body.data(using: .utf8) {
             let bodyFile = bodiesDir.appendingPathComponent("\(requestId).body")
             try bodyData.write(to: bodyFile)
         }
         
-        // Сохраняем запрос в JSON
+        // Save request as JSON
         let requestFile = requestsDir.appendingPathComponent("\(requestId).json")
         let requestData: [String: Any] = [
             "url": request.url,
@@ -66,7 +66,7 @@ class FileStorageDataSource {
         let jsonData = try JSONSerialization.data(withJSONObject: requestData)
         try jsonData.write(to: requestFile)
         
-        // Сохраняем начальный статус
+        // Save initial status
         try saveStatus(requestId: requestId, status: .inProgress, startTime: registrationDate)
         
         return TaskInfo(
@@ -78,7 +78,7 @@ class FileStorageDataSource {
         )
     }
     
-    /// Загружает информацию о задаче
+    /// Loads task information
     func loadTaskInfo(requestId: String) -> TaskInfo? {
         let requestFile = requestsDir.appendingPathComponent("\(requestId).json")
         guard FileManager.default.fileExists(atPath: requestFile.path) else {
@@ -86,7 +86,7 @@ class FileStorageDataSource {
         }
         
         let status = loadStatus(requestId: requestId) ?? .inProgress
-        // Получаем дату регистрации из файла статуса, если она там есть, иначе используем lastModified
+        // Get registration date from status file if present, otherwise use lastModified
         let registrationDate = loadRegistrationDate(requestId: requestId) ?? {
             if let attributes = try? FileManager.default.attributesOfItem(atPath: requestFile.path),
                let modificationDate = attributes[.modificationDate] as? Date {
@@ -105,7 +105,7 @@ class FileStorageDataSource {
         )
     }
     
-    /// Загружает дату регистрации из файла статуса
+    /// Loads registration date from the status file
     private func loadRegistrationDate(requestId: String) -> Int64? {
         let statusFile = statusDir.appendingPathComponent("\(requestId).json")
         guard FileManager.default.fileExists(atPath: statusFile.path),
@@ -117,7 +117,7 @@ class FileStorageDataSource {
         return startTime
     }
     
-    /// Загружает ответ задачи
+    /// Loads task response
     func loadTaskResponse(requestId: String) -> TaskInfo? {
         guard var taskInfo = loadTaskInfo(requestId: requestId) else {
             return nil
@@ -142,7 +142,7 @@ class FileStorageDataSource {
         return taskInfo
     }
     
-    /// Сохраняет статус задачи
+    /// Saves task status
     func saveStatus(requestId: String, status: RequestStatus, startTime: Int64? = nil) throws {
         let statusFile = statusDir.appendingPathComponent("\(requestId).json")
         var statusData: [String: Any] = [
@@ -158,7 +158,7 @@ class FileStorageDataSource {
         try jsonData.write(to: statusFile)
     }
     
-    /// Загружает статус задачи
+    /// Loads task status
     func loadStatus(requestId: String) -> RequestStatus? {
         let statusFile = statusDir.appendingPathComponent("\(requestId).json")
         guard FileManager.default.fileExists(atPath: statusFile.path),
@@ -172,7 +172,7 @@ class FileStorageDataSource {
         return status
     }
     
-    /// Сохраняет ответ от сервера
+    /// Saves server response
     func saveResponse(
         requestId: String,
         statusCode: Int,
@@ -196,15 +196,15 @@ class FileStorageDataSource {
         let jsonData = try JSONSerialization.data(withJSONObject: responseData)
         try jsonData.write(to: responseFile)
         
-        // Обновляем статус
+        // Update status
         try saveStatus(requestId: requestId, status: status)
     }
     
-    /// Удаляет все файлы, связанные с задачей
+    /// Deletes all files associated with a task
     func deleteTaskFiles(requestId: String) -> Bool {
         var deleted = true
         
-        // Удаляем файл запроса
+        // Delete request file
         let requestFile = requestsDir.appendingPathComponent("\(requestId).json")
         if FileManager.default.fileExists(atPath: requestFile.path) {
             try? FileManager.default.removeItem(at: requestFile)
@@ -212,32 +212,32 @@ class FileStorageDataSource {
             deleted = false
         }
         
-        // Удаляем файл body
+        // Delete body file
         let bodyFile = bodiesDir.appendingPathComponent("\(requestId).body")
         try? FileManager.default.removeItem(at: bodyFile)
         
-        // Удаляем файл ответа JSON
+        // Delete JSON response file
         let responseJsonFile = responsesDir.appendingPathComponent("\(requestId).json")
         try? FileManager.default.removeItem(at: responseJsonFile)
         
-        // Удаляем файл ответа (данные)
+        // Delete response data file
         let responseDataFile = responsesDir.appendingPathComponent("\(requestId)_response.txt")
         try? FileManager.default.removeItem(at: responseDataFile)
         
-        // Удаляем файл статуса
+        // Delete status file
         let statusFile = statusDir.appendingPathComponent("\(requestId).json")
         try? FileManager.default.removeItem(at: statusFile)
         
         return deleted
     }
     
-    /// Проверяет существование задачи
+    /// Checks if a task exists
     func taskExists(requestId: String) -> Bool {
         let requestFile = requestsDir.appendingPathComponent("\(requestId).json")
         return FileManager.default.fileExists(atPath: requestFile.path)
     }
     
-    /// Получает список всех ID задач из файловой системы
+    /// Gets a list of all task IDs from the file system
     func getAllTaskIds() -> [String] {
         guard let files = try? FileManager.default.contentsOfDirectory(at: requestsDir, includingPropertiesForKeys: nil) else {
             return []
@@ -247,7 +247,7 @@ class FileStorageDataSource {
             .map { $0.deletingPathExtension().lastPathComponent }
     }
     
-    /// Загружает данные запроса из файла
+    /// Loads request data from file
     func loadRequestData(requestId: String) -> RequestData? {
         let requestFile = requestsDir.appendingPathComponent("\(requestId).json")
         guard FileManager.default.fileExists(atPath: requestFile.path),
@@ -256,7 +256,7 @@ class FileStorageDataSource {
             return nil
         }
         
-        // Парсим multipartFiles
+        // Parse multipartFiles
         var multipartFiles: [String: MultipartFile]?
         if let filesDict = json["multipartFiles"] as? [String: [String: Any]] {
             multipartFiles = [:]
@@ -285,7 +285,7 @@ class FileStorageDataSource {
     }
 }
 
-/// Структура для хранения данных запроса
+/// Structure for storing request data
 struct RequestData {
     let url: String
     let method: String

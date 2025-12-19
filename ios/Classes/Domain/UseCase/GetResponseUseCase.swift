@@ -1,6 +1,6 @@
 import Foundation
 
-/// Use case для получения ответа задачи
+/// Use case for getting task response
 struct GetResponseUseCase {
     private let repository: TaskRepository
     

@@ -1,8 +1,8 @@
 import Foundation
 
-/// Mapper для преобразования между domain и data моделями
+/// Mapper for converting between domain and data models
 struct RequestMapper {
-    /// Преобразует Dictionary из Flutter в HttpRequest domain entity
+    /// Converts a Dictionary from Flutter into an HttpRequest domain entity
     static func fromFlutterMap(_ map: [String: Any]) -> HttpRequest {
         let headers = map["headers"] as? [String: String]
         
@@ -34,7 +34,7 @@ struct RequestMapper {
         )
     }
     
-    /// Генерирует уникальный ID для запроса
+    /// Generates a unique ID for a request
     static func generateRequestId() -> String {
         return UUID().uuidString
     }

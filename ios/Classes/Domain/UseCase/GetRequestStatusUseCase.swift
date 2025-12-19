@@ -1,6 +1,6 @@
 import Foundation
 
-/// Use case для получения статуса задачи
+/// Use case for getting task status
 struct GetRequestStatusUseCase {
     private let repository: TaskRepository
     

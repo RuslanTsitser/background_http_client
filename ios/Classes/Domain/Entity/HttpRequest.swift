@@ -1,6 +1,6 @@
 import Foundation
 
-/// Модель HTTP запроса
+/// HTTP request model
 struct HttpRequest {
     let url: String
     let method: String
@@ -16,7 +16,7 @@ struct HttpRequest {
     let queueTimeout: Int?
 }
 
-/// Модель multipart файла
+/// Multipart file model
 struct MultipartFile {
     let filePath: String
     let filename: String?

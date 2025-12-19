@@ -1,13 +1,13 @@
 package com.tsitser.background_http_plugin.domain.entity
 
 /**
- * Информация о задаче в нативном HTTP сервисе
+ * Task information in native HTTP service
  */
 data class TaskInfo(
     val id: String,
     val status: RequestStatus,
     val path: String,
-    val registrationDate: Long, // timestamp в миллисекундах
+    val registrationDate: Long, // timestamp in milliseconds
     val responseJson: Map<String, Any>? = null
 )
 

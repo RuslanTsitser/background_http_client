@@ -5,7 +5,7 @@ import com.tsitser.background_http_plugin.domain.entity.TaskInfo
 import com.tsitser.background_http_plugin.domain.repository.TaskRepository
 
 /**
- * Use case для создания HTTP запроса
+ * Use case for creating HTTP request
  */
 class CreateRequestUseCase(
     private val repository: TaskRepository

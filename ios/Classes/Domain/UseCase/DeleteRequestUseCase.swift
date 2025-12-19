@@ -1,6 +1,6 @@
 import Foundation
 
-/// Use case для удаления задачи
+/// Use case for deleting a task
 struct DeleteRequestUseCase {
     private let repository: TaskRepository
     

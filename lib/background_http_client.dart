@@ -1,7 +1,7 @@
-/// Плагин для выполнения HTTP запросов в фоновом режиме
+/// Plugin for executing HTTP requests in the background
 ///
-/// Этот плагин позволяет выполнять стандартные HTTP запросы (GET, POST, PUT, DELETE, PATCH, HEAD)
-/// в фоновом режиме. Запросы сохраняются в файлы, и по ID можно получить статус и ответ.
+/// This plugin allows you to perform standard HTTP requests (GET, POST, PUT, DELETE, PATCH, HEAD)
+/// in the background. Requests are stored in files, and by ID you can retrieve their status and response.
 library;
 
 export 'src/background_http_client.dart';

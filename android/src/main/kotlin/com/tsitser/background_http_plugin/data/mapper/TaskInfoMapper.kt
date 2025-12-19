@@ -4,12 +4,12 @@ import com.tsitser.background_http_plugin.domain.entity.TaskInfo
 import java.util.HashMap
 
 /**
- * Mapper для преобразования TaskInfo в Map для Flutter
+ * Mapper for converting TaskInfo into a Map for Flutter.
  */
 object TaskInfoMapper {
 
     /**
-     * Преобразует TaskInfo в Map для отправки в Flutter
+     * Converts TaskInfo into a Map for sending to Flutter.
      */
     fun toFlutterMap(taskInfo: TaskInfo): Map<String, Any> {
         val map = HashMap<String, Any>()

@@ -9,7 +9,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 
 /**
- * Обработчик EventChannel для отправки событий о завершенных задачах
+ * EventChannel handler for sending events about completed tasks.
  */
 class TaskCompletedEventStreamHandler(private val context: Context) : EventChannel.StreamHandler {
     
@@ -21,8 +21,8 @@ class TaskCompletedEventStreamHandler(private val context: Context) : EventChann
         private var instance: TaskCompletedEventStreamHandler? = null
         
         /**
-         * Получает singleton экземпляр
-         * Используется для отправки событий из HttpRequestWorker
+         * Returns the singleton instance.
+         * Used for sending events from HttpRequestWorker.
          */
         fun getInstance(context: Context): TaskCompletedEventStreamHandler {
             return instance ?: synchronized(this) {
@@ -44,8 +44,8 @@ class TaskCompletedEventStreamHandler(private val context: Context) : EventChann
     }
     
     /**
-     * Отправляет событие о завершенной задаче
-     * Вызывается из HttpRequestWorker или других мест
+     * Sends an event about a completed task.
+     * Called from HttpRequestWorker or other places.
      */
     fun sendCompletedTask(requestId: String) {
         scope.launch(Dispatchers.Main) {

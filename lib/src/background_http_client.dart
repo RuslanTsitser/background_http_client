@@ -3,31 +3,31 @@ import 'dart:convert';
 import '../background_http_client_platform_interface.dart';
 import 'models.dart';
 
-/// Основной класс для выполнения HTTP запросов в фоновом режиме
+/// Main class for executing HTTP requests in the background.
 ///
-/// Использует интерфейс, похожий на Dio, но выполняет запросы в фоне.
-/// Каждый запрос сохраняется в файл, возвращается ID и путь к файлу.
-/// Ответ от сервера также сохраняется в файл.
+/// Uses an interface similar to Dio, but executes requests in the background.
+/// Each request is saved to a file; the ID and file path are returned.
+/// The server response is also saved to a file.
 class BackgroundHttpClient {
-  /// Платформенная реализация
+  /// Platform implementation
   final BackgroundHttpClientPlatform _platform;
 
-  /// Создает экземпляр [BackgroundHttpClient]
+  /// Creates an instance of [BackgroundHttpClient]
   BackgroundHttpClient({BackgroundHttpClientPlatform? platform})
       : _platform = platform ?? BackgroundHttpClientPlatform.instance;
 
-  /// Выполняет GET запрос
+  /// Executes a GET request
   ///
-  /// [url] - URL для запроса
-  /// [headers] - дополнительные заголовки
-  /// [queryParameters] - query параметры
-  /// [timeout] - таймаут в секундах
-  /// [requestId] - кастомный ID запроса (опционально). Если не указан, будет сгенерирован автоматически
-  /// [retries] - количество повторных попыток при ошибках (0-10, по умолчанию 0)
-  /// [stuckTimeoutBuffer] - запас времени в секундах для определения зависших запросов в процессе выполнения (по умолчанию 60)
-  /// [queueTimeout] - максимальное время ожидания в очереди в секундах (по умолчанию 600 = 10 минут)
+  /// [url] - URL for the request
+  /// [headers] - additional headers
+  /// [queryParameters] - query parameters
+  /// [timeout] - timeout in seconds
+  /// [requestId] - custom request ID (optional). If not provided, it will be generated automatically
+  /// [retries] - number of retry attempts on errors (0-10, default 0)
+  /// [stuckTimeoutBuffer] - buffer time in seconds to detect stuck requests during execution (default 60)
+  /// [queueTimeout] - maximum queue waiting time in seconds (default 600 = 10 minutes)
   ///
-  /// Возвращает [TaskInfo] с информацией о созданной задаче
+  /// Returns [TaskInfo] with information about the created task
   Future<TaskInfo> get(
     String url, {
     Map<String, String>? headers,
@@ -52,19 +52,19 @@ class BackgroundHttpClient {
     return await _createRequest(request);
   }
 
-  /// Выполняет POST запрос
+  /// Executes a POST request
   ///
-  /// [url] - URL для запроса
-  /// [data] - данные для отправки (будет преобразовано в JSON строку, если это Map или List)
-  /// [headers] - дополнительные заголовки
-  /// [queryParameters] - query параметры
-  /// [timeout] - таймаут в секундах
-  /// [requestId] - кастомный ID запроса (опционально). Если не указан, будет сгенерирован автоматически
-  /// [retries] - количество повторных попыток при ошибках (0-10, по умолчанию 0)
-  /// [stuckTimeoutBuffer] - запас времени в секундах для определения зависших запросов в процессе выполнения (по умолчанию 60)
-  /// [queueTimeout] - максимальное время ожидания в очереди в секундах (по умолчанию 600 = 10 минут)
+  /// [url] - URL for the request
+  /// [data] - data to send (will be converted to a JSON string if it is a Map or List)
+  /// [headers] - additional headers
+  /// [queryParameters] - query parameters
+  /// [timeout] - timeout in seconds
+  /// [requestId] - custom request ID (optional). If not provided, it will be generated automatically
+  /// [retries] - number of retry attempts on errors (0-10, default 0)
+  /// [stuckTimeoutBuffer] - buffer time in seconds to detect stuck requests during execution (default 60)
+  /// [queueTimeout] - maximum queue waiting time in seconds (default 600 = 10 minutes)
   ///
-  /// Возвращает [TaskInfo] с информацией о созданной задаче
+  /// Returns [TaskInfo] with information about the created task
   Future<TaskInfo> post(
     String url, {
     dynamic data,
@@ -82,7 +82,7 @@ class BackgroundHttpClient {
         body = data;
       } else if (data is Map || data is List) {
         body = jsonEncode(data);
-        // Устанавливаем Content-Type, если не указан
+        // Set Content-Type if not provided
         headers ??= {};
         headers.putIfAbsent('Content-Type', () => 'application/json');
       } else {
@@ -105,19 +105,19 @@ class BackgroundHttpClient {
     return await _createRequest(request);
   }
 
-  /// Выполняет PUT запрос
+  /// Executes a PUT request
   ///
-  /// [url] - URL для запроса
-  /// [data] - данные для отправки (будет преобразовано в JSON строку, если это Map или List)
-  /// [headers] - дополнительные заголовки
-  /// [queryParameters] - query параметры
-  /// [timeout] - таймаут в секундах
-  /// [requestId] - кастомный ID запроса (опционально). Если не указан, будет сгенерирован автоматически
-  /// [retries] - количество повторных попыток при ошибках (0-10, по умолчанию 0)
-  /// [stuckTimeoutBuffer] - запас времени в секундах для определения зависших запросов в процессе выполнения (по умолчанию 60)
-  /// [queueTimeout] - максимальное время ожидания в очереди в секундах (по умолчанию 600 = 10 минут)
+  /// [url] - URL for the request
+  /// [data] - data to send (will be converted to a JSON string if it is a Map or List)
+  /// [headers] - additional headers
+  /// [queryParameters] - query parameters
+  /// [timeout] - timeout in seconds
+  /// [requestId] - custom request ID (optional). If not provided, it will be generated automatically
+  /// [retries] - number of retry attempts on errors (0-10, default 0)
+  /// [stuckTimeoutBuffer] - buffer time in seconds to detect stuck requests during execution (default 60)
+  /// [queueTimeout] - maximum queue waiting time in seconds (default 600 = 10 minutes)
   ///
-  /// Возвращает [TaskInfo] с информацией о созданной задаче
+  /// Returns [TaskInfo] with information about the created task
   Future<TaskInfo> put(
     String url, {
     dynamic data,
@@ -157,18 +157,18 @@ class BackgroundHttpClient {
     return await _createRequest(request);
   }
 
-  /// Выполняет DELETE запрос
+  /// Executes a DELETE request
   ///
-  /// [url] - URL для запроса
-  /// [headers] - дополнительные заголовки
-  /// [queryParameters] - query параметры
-  /// [timeout] - таймаут в секундах
-  /// [requestId] - кастомный ID запроса (опционально). Если не указан, будет сгенерирован автоматически
-  /// [retries] - количество повторных попыток при ошибках (0-10, по умолчанию 0)
-  /// [stuckTimeoutBuffer] - запас времени в секундах для определения зависших запросов в процессе выполнения (по умолчанию 60)
-  /// [queueTimeout] - максимальное время ожидания в очереди в секундах (по умолчанию 600 = 10 минут)
+  /// [url] - URL for the request
+  /// [headers] - additional headers
+  /// [queryParameters] - query parameters
+  /// [timeout] - timeout in seconds
+  /// [requestId] - custom request ID (optional). If not provided, it will be generated automatically
+  /// [retries] - number of retry attempts on errors (0-10, default 0)
+  /// [stuckTimeoutBuffer] - buffer time in seconds to detect stuck requests during execution (default 60)
+  /// [queueTimeout] - maximum queue waiting time in seconds (default 600 = 10 minutes)
   ///
-  /// Возвращает [TaskInfo] с информацией о созданной задаче
+  /// Returns [TaskInfo] with information about the created task
   Future<TaskInfo> delete(
     String url, {
     Map<String, String>? headers,
@@ -193,19 +193,19 @@ class BackgroundHttpClient {
     return await _createRequest(request);
   }
 
-  /// Выполняет PATCH запрос
+  /// Executes a PATCH request
   ///
-  /// [url] - URL для запроса
-  /// [data] - данные для отправки (будет преобразовано в JSON строку, если это Map или List)
-  /// [headers] - дополнительные заголовки
-  /// [queryParameters] - query параметры
-  /// [timeout] - таймаут в секундах
-  /// [requestId] - кастомный ID запроса (опционально). Если не указан, будет сгенерирован автоматически
-  /// [retries] - количество повторных попыток при ошибках (0-10, по умолчанию 0)
-  /// [stuckTimeoutBuffer] - запас времени в секундах для определения зависших запросов в процессе выполнения (по умолчанию 60)
-  /// [queueTimeout] - максимальное время ожидания в очереди в секундах (по умолчанию 600 = 10 минут)
+  /// [url] - URL for the request
+  /// [data] - data to send (will be converted to a JSON string if it is a Map or List)
+  /// [headers] - additional headers
+  /// [queryParameters] - query parameters
+  /// [timeout] - timeout in seconds
+  /// [requestId] - custom request ID (optional). If not provided, it will be generated automatically
+  /// [retries] - number of retry attempts on errors (0-10, default 0)
+  /// [stuckTimeoutBuffer] - buffer time in seconds to detect stuck requests during execution (default 60)
+  /// [queueTimeout] - maximum queue waiting time in seconds (default 600 = 10 minutes)
   ///
-  /// Возвращает [TaskInfo] с информацией о созданной задаче
+  /// Returns [TaskInfo] with information about the created task
   Future<TaskInfo> patch(
     String url, {
     dynamic data,
@@ -245,18 +245,18 @@ class BackgroundHttpClient {
     return await _createRequest(request);
   }
 
-  /// Выполняет HEAD запрос
+  /// Executes a HEAD request
   ///
-  /// [url] - URL для запроса
-  /// [headers] - дополнительные заголовки
-  /// [queryParameters] - query параметры
-  /// [timeout] - таймаут в секундах
-  /// [requestId] - кастомный ID запроса (опционально). Если не указан, будет сгенерирован автоматически
-  /// [retries] - количество повторных попыток при ошибках (0-10, по умолчанию 0)
-  /// [stuckTimeoutBuffer] - запас времени в секундах для определения зависших запросов в процессе выполнения (по умолчанию 60)
-  /// [queueTimeout] - максимальное время ожидания в очереди в секундах (по умолчанию 600 = 10 минут)
+  /// [url] - URL for the request
+  /// [headers] - additional headers
+  /// [queryParameters] - query parameters
+  /// [timeout] - timeout in seconds
+  /// [requestId] - custom request ID (optional). If not provided, it will be generated automatically
+  /// [retries] - number of retry attempts on errors (0-10, default 0)
+  /// [stuckTimeoutBuffer] - buffer time in seconds to detect stuck requests during execution (default 60)
+  /// [queueTimeout] - maximum queue waiting time in seconds (default 600 = 10 minutes)
   ///
-  /// Возвращает [TaskInfo] с информацией о созданной задаче
+  /// Returns [TaskInfo] with information about the created task
   Future<TaskInfo> head(
     String url, {
     Map<String, String>? headers,
@@ -281,20 +281,20 @@ class BackgroundHttpClient {
     return await _createRequest(request);
   }
 
-  /// Выполняет multipart/form-data запрос
+  /// Executes a multipart/form-data request
   ///
-  /// [url] - URL для запроса
-  /// [fields] - текстовые поля формы
-  /// [files] - файлы для загрузки (ключ - имя поля, значение - MultipartFile)
-  /// [headers] - дополнительные заголовки
-  /// [queryParameters] - query параметры
-  /// [timeout] - таймаут в секундах
-  /// [requestId] - кастомный ID запроса (опционально). Если не указан, будет сгенерирован автоматически
-  /// [retries] - количество повторных попыток при ошибках (0-10, по умолчанию 0)
-  /// [stuckTimeoutBuffer] - запас времени в секундах для определения зависших запросов в процессе выполнения (по умолчанию 60)
-  /// [queueTimeout] - максимальное время ожидания в очереди в секундах (по умолчанию 600 = 10 минут)
+  /// [url] - URL for the request
+  /// [fields] - text form fields
+  /// [files] - files to upload (key - field name, value - MultipartFile)
+  /// [headers] - additional headers
+  /// [queryParameters] - query parameters
+  /// [timeout] - timeout in seconds
+  /// [requestId] - custom request ID (optional). If not provided, it will be generated automatically
+  /// [retries] - number of retry attempts on errors (0-10, default 0)
+  /// [stuckTimeoutBuffer] - buffer time in seconds to detect stuck requests during execution (default 60)
+  /// [queueTimeout] - maximum queue waiting time in seconds (default 600 = 10 minutes)
   ///
-  /// Возвращает [TaskInfo] с информацией о созданной задаче
+  /// Returns [TaskInfo] with information about the created task
   Future<TaskInfo> postMultipart(
     String url, {
     Map<String, String>? fields,
@@ -323,26 +323,26 @@ class BackgroundHttpClient {
     return await _createRequest(request);
   }
 
-  /// Выполняет произвольный HTTP запрос
+  /// Executes an arbitrary HTTP request
   ///
-  /// [request] - объект [HttpRequest] с параметрами запроса
+  /// [request] - [HttpRequest] object with request parameters
   ///
-  /// Возвращает [TaskInfo] с информацией о созданной задаче
+  /// Returns [TaskInfo] with information about the created task
   Future<TaskInfo> request(HttpRequest request) async {
     return await _createRequest(request);
   }
 
-  /// Внутренний метод для создания запроса
+  /// Internal method for creating a request
   Future<TaskInfo> _createRequest(HttpRequest request) async {
     final result = await _platform.createRequest(request.toJson());
     return TaskInfo.fromJson(result);
   }
 
-  /// Получает статус задачи по ID
+  /// Gets task status by ID
   ///
-  /// [requestId] - ID задачи
+  /// [requestId] - task ID
   ///
-  /// Возвращает [TaskInfo] с информацией о задаче или null, если задача не найдена
+  /// Returns [TaskInfo] with task information or null if the task is not found
   Future<TaskInfo?> getRequestStatus(String requestId) async {
     final result = await _platform.getRequestStatus(requestId);
     if (result == null) {
@@ -351,11 +351,11 @@ class BackgroundHttpClient {
     return TaskInfo.fromJson(result);
   }
 
-  /// Получает ответ от сервера по ID задачи
+  /// Gets the server response by task ID
   ///
-  /// [requestId] - ID задачи
+  /// [requestId] - task ID
   ///
-  /// Возвращает [TaskInfo] с данными ответа (включая responseJson) или null, если задача не найдена
+  /// Returns [TaskInfo] with response data (including responseJson) or null if the task is not found
   Future<TaskInfo?> getResponse(String requestId) async {
     final result = await _platform.getResponse(requestId);
     if (result == null) {
@@ -364,75 +364,75 @@ class BackgroundHttpClient {
     return TaskInfo.fromJson(result);
   }
 
-  /// Отменяет задачу по ID
+  /// Cancels a task by ID
   ///
-  /// [requestId] - ID задачи для отмены
+  /// [requestId] - task ID to cancel
   ///
-  /// Возвращает true если задача отменена, false если не получилось отменить, null если задачи не существует
+  /// Returns true if the task was cancelled, false if it could not be cancelled, null if the task does not exist
   Future<bool?> cancelRequest(String requestId) async {
     return await _platform.cancelRequest(requestId);
   }
 
-  /// Удаляет задачу и все связанные файлы по ID
+  /// Deletes a task and all related files by ID
   ///
-  /// [requestId] - ID задачи для удаления
+  /// [requestId] - task ID to delete
   ///
-  /// Возвращает true если задача удалена, false если не получилось удалить, null если задачи не существует
+  /// Returns true if the task was deleted, false if it could not be deleted, null if the task does not exist
   ///
-  /// Удаляет:
-  /// - Все WorkManager задачи (Android) или активные задачи (iOS)
-  /// - Файл запроса
-  /// - Файл ответа (JSON и данные)
-  /// - Файл статуса
-  /// - Файл body запроса (если существует)
+  /// Deletes:
+  /// - All WorkManager tasks (Android) or active tasks (iOS)
+  /// - Request file
+  /// - Response file (JSON and data)
+  /// - Status file
+  /// - Request body file (if it exists)
   Future<bool?> deleteRequest(String requestId) async {
     return await _platform.deleteRequest(requestId);
   }
 
-  /// Получает stream с ID завершенных задач
+  /// Gets a stream with IDs of completed tasks
   ///
-  /// Возвращает Stream<String> с ID задач, которые были успешно завершены
-  /// Каждый раз, когда задача успешно завершается (HTTP статус 200-299), в stream отправляется её ID
+  /// Returns Stream<String> with IDs of tasks that have been successfully completed.
+  /// Each time a task successfully completes (HTTP status 200-299), its ID is sent to the stream.
   Stream<String> getCompletedTasksStream() {
     return _platform.getCompletedTasksStream();
   }
 
-  /// Получает список задач в ожидании с датами добавления
+  /// Gets a list of pending tasks with registration dates
   ///
-  /// Возвращает список [PendingTask] с ID задач и датами их регистрации
+  /// Returns a list of [PendingTask] with task IDs and their registration dates
   Future<List<PendingTask>> getPendingTasks() async {
     final result = await _platform.getPendingTasks();
     return result.map((json) => PendingTask.fromJson(json)).toList();
   }
 
-  /// Отменяет все задачи
+  /// Cancels all tasks
   ///
-  /// Возвращает количество отмененных задач
+  /// Returns the number of cancelled tasks
   Future<int> cancelAllTasks() async {
     return await _platform.cancelAllTasks();
   }
 
-  // ============== Методы управления очередью ==============
+  // ============== Queue management methods ==============
 
-  /// Получает статистику очереди задач
+  /// Gets task queue statistics
   ///
-  /// Возвращает [QueueStats] с информацией о состоянии очереди:
-  /// - pendingCount: количество задач в очереди (ожидающих выполнения)
-  /// - activeCount: количество активных задач (выполняющихся прямо сейчас)
-  /// - maxConcurrent: максимальное количество одновременных задач
-  /// - maxQueueSize: максимальный размер очереди
+  /// Returns [QueueStats] with information about the queue state:
+  /// - pendingCount: number of tasks in the queue (waiting to be executed)
+  /// - activeCount: number of active tasks (currently executing)
+  /// - maxConcurrent: maximum number of concurrent tasks
+  /// - maxQueueSize: maximum queue size
   Future<QueueStats> getQueueStats() async {
     final result = await _platform.getQueueStats();
     return QueueStats.fromJson(result);
   }
 
-  /// Устанавливает максимальное количество одновременных задач
+  /// Sets the maximum number of concurrent tasks
   ///
-  /// [count] - максимальное количество одновременных задач (минимум 1, по умолчанию 30)
+  /// [count] - maximum number of concurrent tasks (minimum 1, default 30)
   ///
-  /// Если увеличить лимит, плагин автоматически запустит дополнительные задачи из очереди.
-  /// Если уменьшить лимит, текущие активные задачи не будут отменены,
-  /// но новые не будут запускаться пока количество активных не станет меньше нового лимита.
+  /// If you increase the limit, the plugin will automatically start additional tasks from the queue.
+  /// If you decrease the limit, currently active tasks will not be cancelled,
+  /// but new ones will not start until the number of active tasks is less than the new limit.
   Future<bool> setMaxConcurrentTasks(int count) async {
     if (count < 1) {
       throw ArgumentError('count must be at least 1');
@@ -440,11 +440,11 @@ class BackgroundHttpClient {
     return await _platform.setMaxConcurrentTasks(count);
   }
 
-  /// Устанавливает максимальный размер очереди
+  /// Sets the maximum queue size
   ///
-  /// [size] - максимальный размер очереди (минимум 1, по умолчанию 10000)
+  /// [size] - maximum queue size (minimum 1, default 10000)
   ///
-  /// Если очередь переполнена, новые задачи будут отклонены.
+  /// If the queue is full, new tasks will be rejected.
   Future<bool> setMaxQueueSize(int size) async {
     if (size < 1) {
       throw ArgumentError('size must be at least 1');
@@ -452,22 +452,22 @@ class BackgroundHttpClient {
     return await _platform.setMaxQueueSize(size);
   }
 
-  /// Синхронизирует состояние очереди с реальным состоянием задач
+  /// Synchronizes the queue state with the actual task state
   ///
-  /// Вызывается для очистки "зависших" задач:
-  /// - Задачи, которые помечены как активные, но не выполняются в WorkManager
-  /// - Задачи в очереди, для которых не существует файла запроса
+  /// Called to clean up "stuck" tasks:
+  /// - Tasks that are marked as active but are not running in WorkManager
+  /// - Tasks in the queue for which the request file does not exist
   ///
-  /// Рекомендуется вызывать при старте приложения.
+  /// Recommended to call on application startup.
   Future<bool> syncQueueState() async {
     return await _platform.syncQueueState();
   }
 
-  /// Принудительно обрабатывает очередь
+  /// Forces queue processing
   ///
-  /// Запускает ожидающие задачи, если есть свободные слоты.
-  /// Обычно это происходит автоматически, но можно вызвать вручную
-  /// для немедленного запуска задач.
+  /// Starts pending tasks if there are free slots.
+  /// Usually this happens automatically, but it can be called manually
+  /// to start tasks immediately.
   Future<bool> processQueue() async {
     return await _platform.processQueue();
   }

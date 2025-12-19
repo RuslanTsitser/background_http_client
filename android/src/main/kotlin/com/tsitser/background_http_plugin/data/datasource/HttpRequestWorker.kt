@@ -18,7 +18,7 @@ import java.io.File
 import java.util.concurrent.TimeUnit
 
 /**
- * Worker для выполнения HTTP запросов в фоне
+ * Worker for executing HTTP requests in the background.
  */
 class HttpRequestWorker(
     context: Context,
@@ -39,8 +39,8 @@ class HttpRequestWorker(
         try {
             val taskInfo = fileStorage.loadTaskInfo(requestId)
                 ?: return@withContext Result.failure()
-
-            // Загружаем запрос из файла
+            
+            // Load request from file
             val requestFile = File(taskInfo.path)
             if (!requestFile.exists()) {
                 Log.e(TAG, "Request file not found: ${taskInfo.path}")
@@ -55,7 +55,7 @@ class HttpRequestWorker(
             val queryParameters = requestJson.optJSONObject("queryParameters")?.toMap() as? Map<String, String>
             val timeout = requestJson.optInt("timeout", 120)
             
-            // Парсим multipartFields
+            // Parse multipartFields
             val multipartFields = requestJson.optJSONObject("multipartFields")?.let { json ->
                 val map = mutableMapOf<String, String>()
                 json.keys().forEach { key ->
@@ -67,7 +67,7 @@ class HttpRequestWorker(
                 map.takeIf { it.isNotEmpty() }
             }
             
-            // Парсим multipartFiles
+            // Parse multipartFiles
             val multipartFiles = requestJson.optJSONObject("multipartFiles")?.let { json ->
                 val map = mutableMapOf<String, Map<String, Any>>()
                 json.keys().forEach { key ->
@@ -85,7 +85,7 @@ class HttpRequestWorker(
             
             val retries = requestJson.optInt("retries", 0)
 
-            // Строим URL с query параметрами
+            // Build URL with query parameters
             var requestUrl = url
             if (!queryParameters.isNullOrEmpty()) {
                 val urlBuilder = url.toHttpUrlOrNull()?.newBuilder()
@@ -95,14 +95,14 @@ class HttpRequestWorker(
                 requestUrl = urlBuilder?.build()?.toString() ?: url
             }
 
-            // Создаем OkHttp клиент
+            // Create OkHttp client
             val client = OkHttpClient.Builder()
                 .connectTimeout(timeout.toLong(), TimeUnit.SECONDS)
                 .readTimeout(timeout.toLong(), TimeUnit.SECONDS)
                 .writeTimeout(timeout.toLong(), TimeUnit.SECONDS)
                 .build()
 
-            // Создаем request body
+            // Create request body
             val requestBody = when {
                 !multipartFields.isNullOrEmpty() || !multipartFiles.isNullOrEmpty() -> {
                     buildMultipartBody(multipartFields, multipartFiles)
@@ -113,22 +113,22 @@ class HttpRequestWorker(
                 else -> null
             }
 
-            // Создаем запрос
+            // Create request
             val requestBuilder = okhttp3.Request.Builder()
                 .url(requestUrl)
                 .method(method, requestBody)
 
-            // Добавляем заголовки (но не Content-Type для multipart, OkHttp установит его автоматически)
+            // Add headers (but not Content-Type for multipart; OkHttp will set it automatically)
             headers?.forEach { (key, value) ->
                 if (requestBody == null || key.lowercase() != "content-type") {
                     requestBuilder.addHeader(key, value)
                 }
             }
 
-            // Выполняем запрос
+            // Execute request
             val response = client.newCall(requestBuilder.build()).execute()
 
-            // Обрабатываем ответ
+            // Handle response
             val responseBody = response.body?.string()
             val responseHeaders = response.headers.toMultimap().mapValues { it.value.firstOrNull() ?: "" }
             val statusCode = response.code
@@ -139,44 +139,45 @@ class HttpRequestWorker(
                 RequestStatus.FAILED
             }
 
-            // Сохраняем ответ
+            // Save response
             val responseFilePath = responseBody?.let { saveResponseBody(requestId, it) }
             fileStorage.saveResponse(
                 requestId = requestId,
                 statusCode = statusCode,
                 headers = responseHeaders,
-                body = responseBody?.takeIf { it.length <= 10000 }, // Сохраняем только маленькие ответы в body
+                // Store only small responses in body
+                body = responseBody?.takeIf { it.length <= 10000 },
                 responseFilePath = responseFilePath,
                 status = status,
                 error = if (status == RequestStatus.FAILED) responseBody ?: "Request failed" else null
             )
 
-            // Уведомляем очередь о завершении задачи
+            // Notify queue that the task is completed
             notifyTaskCompleted(requestId)
             
-            // Отправляем событие только при успешном завершении
+            // Send event only on successful completion
             if (status == RequestStatus.COMPLETED) {
                 sendTaskCompletedEvent(requestId)
             }
 
             Result.success()
         } catch (e: CancellationException) {
-            // Отмена задачи - это нормальное поведение, не ошибка
-            // Пробрасываем исключение дальше, чтобы WorkManager правильно обработал отмену
+            // Task cancellation is normal behavior, not an error
+            // Rethrow to let WorkManager handle the cancellation correctly
             throw e
         } catch (e: Exception) {
             Log.e(TAG, "Error executing request $requestId", e)
             
-            // Проверяем, является ли это сетевой ошибкой, которая может быть повторена
+            // Check whether this is a network error that can be retried
             val isNetworkError = e is java.net.UnknownHostException ||
                     e is java.net.ConnectException ||
                     e is java.net.SocketTimeoutException ||
                     e is javax.net.ssl.SSLException ||
                     (e is java.io.IOException && e.message?.contains("network", ignoreCase = true) == true)
             
-            // Проверяем, является ли это ошибкой отсутствия интернета
-            // При отсутствии интернета WorkManager сам будет ждать появления интернета
-            // благодаря ограничению NetworkType.CONNECTED, поэтому не нужно тратить retries
+            // Check whether this is specifically a "no internet" error.
+            // When there is no internet, WorkManager itself will wait for connectivity
+            // thanks to NetworkType.CONNECTED, so we don't need to consume retries.
             val isNoInternetError = e is java.net.UnknownHostException ||
                     (e is java.net.ConnectException && e.message?.contains("Network is unreachable", ignoreCase = true) == true)
             
@@ -191,18 +192,18 @@ class HttpRequestWorker(
                 error = e.message ?: "Unknown error"
             )
             
-            // Не отправляем событие при ошибках - только при успешном завершении
-            // Но уведомляем очередь о завершении задачи (чтобы запустить следующую)
+            // Do not send event on errors – only on successful completion
+            // But notify the queue about completion (to start the next task)
             notifyTaskCompleted(requestId)
             
-            // При сетевых ошибках WorkManager будет повторять задачу
-            // WorkManager имеет ограничение NetworkType.CONNECTED, поэтому при отсутствии интернета
-            // задача будет ждать появления интернета без траты попыток WorkManager
-            // Параметр retries из запроса не используется для ограничения попыток WorkManager
+            // For network errors WorkManager will retry the task.
+            // WorkManager has a NetworkType.CONNECTED constraint, so when there is no internet
+            // the task will wait for connectivity without consuming WorkManager retry attempts.
+            // The `retries` parameter from the request is not used to limit WorkManager attempts.
             if (isNetworkError) {
-                Result.retry() // WorkManager автоматически повторит при сетевых ошибках
+                Result.retry() // WorkManager will automatically retry on network errors
             } else {
-                Result.failure() // Задача завершена с ошибкой, повтор не требуется
+                Result.failure() // Task finished with error, no retry needed
             }
         }
     }
@@ -285,7 +286,7 @@ class HttpRequestWorker(
     }
     
     /**
-     * Отправляет событие о завершенной задаче через EventChannel
+     * Sends an event about a completed task through EventChannel.
      */
     private fun sendTaskCompletedEvent(requestId: String) {
         try {
@@ -297,8 +298,8 @@ class HttpRequestWorker(
     }
     
     /**
-     * Уведомляет TaskQueueManager о завершении задачи
-     * Это позволяет запустить следующую задачу из очереди
+     * Notifies TaskQueueManager that a task has been completed.
+     * This allows the next task in the queue to be started.
      */
     private fun notifyTaskCompleted(requestId: String) {
         try {

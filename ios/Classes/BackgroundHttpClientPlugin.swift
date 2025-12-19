@@ -11,7 +11,7 @@ public class BackgroundHttpClientPlugin: NSObject, FlutterPlugin {
     let instance = BackgroundHttpClientPlugin()
     registrar.addMethodCallDelegate(instance, channel: channel)
     
-    // Регистрируем EventChannel для событий о завершенных задачах
+    // Register EventChannel for completed task events
     let eventChannel = FlutterEventChannel(
       name: "background_http_client/task_completed",
       binaryMessenger: registrar.messenger()

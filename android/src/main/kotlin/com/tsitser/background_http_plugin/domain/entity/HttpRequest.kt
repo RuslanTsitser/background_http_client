@@ -1,7 +1,7 @@
 package com.tsitser.background_http_plugin.domain.entity
 
 /**
- * Модель HTTP запроса
+ * HTTP request model
  */
 data class HttpRequest(
     val url: String,
@@ -19,7 +19,7 @@ data class HttpRequest(
 )
 
 /**
- * Модель multipart файла
+ * Multipart file model
  */
 data class MultipartFile(
     val filePath: String,

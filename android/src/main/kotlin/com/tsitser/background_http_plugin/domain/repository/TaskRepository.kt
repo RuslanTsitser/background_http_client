@@ -3,54 +3,54 @@ package com.tsitser.background_http_plugin.domain.repository
 import com.tsitser.background_http_plugin.domain.entity.TaskInfo
 
 /**
- * Репозиторий для работы с задачами HTTP запросов
+ * Repository for working with HTTP request tasks.
  */
 interface TaskRepository {
     /**
-     * Создает новую задачу HTTP запроса
-     * @return TaskInfo с информацией о созданной задаче
+     * Creates a new HTTP request task.
+     * @return TaskInfo with information about the created task.
      */
     suspend fun createTask(request: com.tsitser.background_http_plugin.domain.entity.HttpRequest): TaskInfo
 
     /**
-     * Получает информацию о задаче по ID
-     * @return TaskInfo или null если задача не найдена
+     * Gets task information by ID.
+     * @return TaskInfo or null if the task is not found.
      */
     suspend fun getTaskInfo(requestId: String): TaskInfo?
 
     /**
-     * Получает ответ задачи по ID
-     * @return TaskInfo с responseJson или null если задача не найдена
+     * Gets task response by ID.
+     * @return TaskInfo with responseJson or null if the task is not found.
      */
     suspend fun getTaskResponse(requestId: String): TaskInfo?
 
     /**
-     * Отменяет задачу по ID
-     * @return true если задача отменена, false если не получилось, null если задачи не существует
+     * Cancels a task by ID.
+     * @return true if the task was cancelled, false if it failed, null if the task does not exist.
      */
     suspend fun cancelTask(requestId: String): Boolean?
 
     /**
-     * Удаляет задачу и все связанные файлы по ID
-     * @return true если задача удалена, false если не получилось, null если задачи не существует
+     * Deletes a task and all related files by ID.
+     * @return true if the task was deleted, false if it failed, null if the task does not exist.
      */
     suspend fun deleteTask(requestId: String): Boolean?
 
     /**
-     * Получает список задач в ожидании с датами регистрации
-     * @return список задач в ожидании
+     * Gets a list of pending tasks with registration dates.
+     * @return list of pending tasks.
      */
     suspend fun getPendingTasks(): List<PendingTask>
 
     /**
-     * Отменяет все задачи
-     * @return количество отмененных задач
+     * Cancels all tasks.
+     * @return number of cancelled tasks.
      */
     suspend fun cancelAllTasks(): Int
 }
 
 /**
- * Информация о задаче в ожидании
+ * Information about a pending task.
  */
 data class PendingTask(
     val requestId: String,

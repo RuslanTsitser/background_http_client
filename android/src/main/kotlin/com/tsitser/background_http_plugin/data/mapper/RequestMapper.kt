@@ -5,12 +5,12 @@ import com.tsitser.background_http_plugin.domain.entity.MultipartFile
 import java.util.UUID
 
 /**
- * Mapper для преобразования между domain и data моделями
+ * Mapper for converting between domain and data models.
  */
 object RequestMapper {
 
     /**
-     * Преобразует Map из Flutter в HttpRequest domain entity
+     * Converts a Map from Flutter into an HttpRequest domain entity.
      */
     fun fromFlutterMap(map: Map<*, *>): HttpRequest {
         @Suppress("UNCHECKED_CAST")
@@ -80,7 +80,7 @@ object RequestMapper {
     }
 
     /**
-     * Генерирует уникальный ID для запроса
+     * Generates a unique ID for a request.
      */
     fun generateRequestId(): String {
         return UUID.randomUUID().toString()

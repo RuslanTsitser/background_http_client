@@ -1,37 +1,37 @@
 # background_http_client
 
-Плагин Flutter для выполнения HTTP запросов в фоновом режиме с интерфейсом, похожим на Dio.
+Flutter plugin for executing HTTP requests in the background with a Dio-like interface.
 
-## Особенности
+## Features
 
-- Интерфейс, похожий на Dio (GET, POST, PUT, DELETE, PATCH, HEAD)
-- Выполнение запросов в фоновом режиме
-- Сохранение запросов и ответов в файлы
-- Отслеживание статуса запросов
-- Получение ответов по ID запроса
+- Dio-like interface (GET, POST, PUT, DELETE, PATCH, HEAD)
+- Background request execution
+- Saving requests and responses to files
+- Request status tracking
+- Getting responses by request ID
 
-## Использование
+## Usage
 
-### Базовое использование
+### Basic Usage
 
 ```dart
 import 'package:background_http_client/background_http_client.dart';
 
 final client = BackgroundHttpClient();
 
-// GET запрос
+// GET request
 final requestInfo = await client.get('https://api.example.com/data');
 
-// POST запрос
+// POST request
 final postInfo = await client.post(
   'https://api.example.com/data',
   data: {'key': 'value'},
 );
 
-// Получение статуса запроса
+// Get request status
 final status = await client.getRequestStatus(requestInfo.requestId);
 
-// Получение ответа
+// Get response
 final response = await client.getResponse(requestInfo.requestId);
 if (response != null) {
   print('Status Code: ${response.statusCode}');
@@ -39,81 +39,81 @@ if (response != null) {
 }
 ```
 
-### Методы запросов
+### Request Methods
 
-- `get(url, {headers, queryParameters, timeout, requestId, retries})` - GET запрос
-- `post(url, {data, headers, queryParameters, timeout, requestId, retries})` - POST запрос
-- `put(url, {data, headers, queryParameters, timeout, requestId, retries})` - PUT запрос
-- `delete(url, {headers, queryParameters, timeout, requestId, retries})` - DELETE запрос
-- `patch(url, {data, headers, queryParameters, timeout, requestId, retries})` - PATCH запрос
-- `head(url, {headers, queryParameters, timeout, requestId, retries})` - HEAD запрос
-- `postMultipart(url, {fields, files, headers, queryParameters, timeout, requestId, retries})` - Multipart запрос
+- `get(url, {headers, queryParameters, timeout, requestId, retries})` - GET request
+- `post(url, {data, headers, queryParameters, timeout, requestId, retries})` - POST request
+- `put(url, {data, headers, queryParameters, timeout, requestId, retries})` - PUT request
+- `delete(url, {headers, queryParameters, timeout, requestId, retries})` - DELETE request
+- `patch(url, {data, headers, queryParameters, timeout, requestId, retries})` - PATCH request
+- `head(url, {headers, queryParameters, timeout, requestId, retries})` - HEAD request
+- `postMultipart(url, {fields, files, headers, queryParameters, timeout, requestId, retries})` - Multipart request
 
-### Повторные попытки (Retries)
+### Retries
 
-Для автоматических повторных попыток при ошибках (таймауты, сетевые ошибки, ошибки сервера) используйте параметр `retries`:
+For automatic retries on errors (timeouts, network errors, server errors), use the `retries` parameter:
 
 ```dart
-// Запрос с 3 повторными попытками
+// Request with 3 retries
 final requestInfo = await client.get(
   'https://api.example.com/data',
-  retries: 3, // От 0 до 10
+  retries: 3, // From 0 to 10
 );
 ```
 
-**Как это работает:**
+**How it works:**
 
-- При ошибке (таймаут, сетевые ошибки, HTTP статус >= 400) запрос автоматически повторяется
-- Используется экспоненциальная задержка между попытками: 2, 4, 8, 16, 32, 64, 128, 256, 512 секунд (максимум 512)
-- Статус запроса обновляется на "в процессе" во время ожидания повтора
-- После исчерпания всех попыток запрос помечается как `FAILED`
+- On error (timeout, network errors, HTTP status >= 400) the request is automatically retried
+- Exponential backoff is used between retries: 2, 4, 8, 16, 32, 64, 128, 256, 512 seconds (max 512)
+- Request status is updated to "in progress" during retry wait
+- After all retries are exhausted, the request is marked as `FAILED`
 
-### Обработка отсутствия интернета
+### Handling No Internet Connection
 
 **Android:**
 
-- При отсутствии интернета WorkManager автоматически ждет появления сети благодаря `NetworkType.CONNECTED` constraint
-- Задача будет автоматически выполнена, когда интернет появится, даже если приложение закрыто
-- При сетевых ошибках (SocketException, ConnectException, UnknownHostException) задача автоматически повторяется при появлении сети
+- When there's no internet, WorkManager automatically waits for network availability thanks to `NetworkType.CONNECTED` constraint
+- The task will be automatically executed when internet becomes available, even if the app is closed
+- On network errors (SocketException, ConnectException, UnknownHostException) the task is automatically retried when network becomes available
 
 **iOS:**
 
-- При отсутствии интернета URLSession автоматически обрабатывает сетевые ошибки
-- Если приложение в фоне (свернуто), запрос будет автоматически повторен при появлении сети
-- При полном закрытии приложения iOS может ограничивать выполнение задач
+- When there's no internet, URLSession automatically handles network errors
+- If the app is in background (minimized), the request will be automatically retried when network becomes available
+- After complete app termination, iOS may limit task execution
 
-### Статусы запросов
+### Request Statuses
 
-- `RequestStatus.inProgress` - запрос в процессе выполнения
-- `RequestStatus.completed` - получен ответ от сервера
-- `RequestStatus.failed` - запрос завершился с ошибкой
+- `RequestStatus.inProgress` - request is in progress
+- `RequestStatus.completed` - response received from server
+- `RequestStatus.failed` - request failed with error
 
-## Архитектура
+## Architecture
 
-Плагин работает по следующему флоу:
+The plugin works according to the following flow:
 
-1. Выполняется запрос через методы `get`, `post` и т.д.
-2. Менеджер сохраняет файл для запроса, возвращает ID и путь к файлу
-3. Менеджер ответственен за отправку, имеет 3 статуса: в процессе, получен ответ, ошибка
-4. Ответ от сервера сохраняется в файле
-5. По ID можно получить ответ от сервера и путь к файлу ответа
+1. Request is executed via `get`, `post`, etc. methods
+2. Manager saves a file for the request, returns ID and file path
+3. Manager is responsible for sending, has 3 statuses: in progress, response received, error
+4. Server response is saved to a file
+5. By ID you can get the server response and path to the response file
 
-## Фоновая работа
+## Background Work
 
 ### Android
 
-- Использует **WorkManager** для выполнения запросов в фоне
-- Запросы продолжают выполняться даже после закрытия приложения
-- **Повторные попытки**: При использовании `retries` повторные попытки планируются через WorkManager с задержкой, что гарантирует их выполнение даже при закрытом приложении
-- WorkManager автоматически управляет выполнением задач в фоне
+- Uses **WorkManager** for executing requests in the background
+- Requests continue to execute even after the app is closed
+- **Retries**: When using `retries`, retry attempts are scheduled via WorkManager with delay, ensuring execution even when the app is closed
+- WorkManager automatically manages task execution in the background
 
 ### iOS
 
-- Использует **URLSession с background configuration** для фоновой работы
-- Запросы продолжают выполняться, когда приложение в фоне (свернуто)
-- **Повторные попытки**: При использовании `retries` повторные попытки работают когда приложение в фоне (свернуто), но могут не работать при полном закрытии приложения
-- **Важно**: После полного закрытия приложения iOS может ограничивать выполнение задач. Для гарантированной работы в фоне рекомендуется использовать приложение в свернутом состоянии, а не полностью закрывать его.
+- Uses **URLSession with background configuration** for background work
+- Requests continue to execute when the app is in background (minimized)
+- **Retries**: When using `retries`, retry attempts work when the app is in background (minimized), but may not work after complete app termination
+- **Important**: After complete app termination, iOS may limit task execution. For guaranteed background work, it's recommended to keep the app minimized rather than completely closing it.
 
-## Платформы
+## Platforms
 
-Плагин требует нативной реализации для Android и iOS. Метод канал `background_http_client` используется для коммуникации между Dart и нативным кодом.
+The plugin requires native implementation for Android and iOS. Method channel `background_http_client` is used for communication between Dart and native code.

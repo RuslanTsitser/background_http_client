@@ -4,7 +4,7 @@ import com.tsitser.background_http_plugin.domain.entity.TaskInfo
 import com.tsitser.background_http_plugin.domain.repository.TaskRepository
 
 /**
- * Use case для получения ответа задачи
+ * Use case for getting task response
  */
 class GetResponseUseCase(
     private val repository: TaskRepository

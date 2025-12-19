@@ -1,17 +1,15 @@
+import 'package:background_http_client/background_http_client_method_channel.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:background_http_client/background_http_client_method_channel.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  MethodChannelBackgroundHttpClient platform =
-      MethodChannelBackgroundHttpClient();
+  MethodChannelBackgroundHttpClient platform = MethodChannelBackgroundHttpClient();
   const MethodChannel channel = MethodChannel('background_http_client');
 
   setUp(() {
-    TestDefaultBinaryMessengerBinding
-        .instance.defaultBinaryMessenger.setMockMethodCallHandler(
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
       channel,
       (MethodCall methodCall) async {
         switch (methodCall.method) {
@@ -37,12 +35,11 @@ void main() {
   });
 
   tearDown(() {
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(channel, null);
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(channel, null);
   });
 
   test('executeRequest', () async {
-    final result = await platform.executeRequest({
+    final result = await platform.createRequest({
       'url': 'https://example.com',
       'method': 'GET',
     });
@@ -56,12 +53,11 @@ void main() {
   });
 
   test('getRequestStatus returns null when request not found', () async {
-    TestDefaultBinaryMessengerBinding
-        .instance.defaultBinaryMessenger.setMockMethodCallHandler(
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
       channel,
       (MethodCall methodCall) async {
         if (methodCall.method == 'getRequestStatus') {
-          // Симулируем PlatformException с кодом NOT_FOUND
+          // Simulate PlatformException with NOT_FOUND code
           throw PlatformException(
             code: 'NOT_FOUND',
             message: 'Request not found',

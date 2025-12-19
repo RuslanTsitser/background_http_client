@@ -1,31 +1,31 @@
 import Foundation
 
-/// Репозиторий для работы с задачами HTTP запросов
+/// Repository for working with HTTP request tasks
 protocol TaskRepository {
-    /// Создает новую задачу HTTP запроса
+    /// Creates a new HTTP request task
     func createTask(request: HttpRequest) async throws -> TaskInfo
     
-    /// Получает информацию о задаче по ID
+    /// Gets task information by ID
     func getTaskInfo(requestId: String) async throws -> TaskInfo?
     
-    /// Получает ответ задачи по ID
+    /// Gets task response by ID
     func getTaskResponse(requestId: String) async throws -> TaskInfo?
     
-    /// Отменяет задачу по ID
+    /// Cancels a task by ID
     func cancelTask(requestId: String) async throws -> Bool?
     
-    /// Удаляет задачу и все связанные файлы по ID
+    /// Deletes a task and all related files by ID
     func deleteTask(requestId: String) async throws -> Bool?
     
-    /// Получает список задач в ожидании с датами регистрации
+    /// Gets a list of pending tasks with registration dates
     func getPendingTasks() async throws -> [PendingTask]
     
-    /// Отменяет все задачи
-    /// Возвращает количество отмененных задач
+    /// Cancels all tasks
+    /// Returns the number of cancelled tasks
     func cancelAllTasks() async throws -> Int
 }
 
-/// Информация о задаче в ожидании
+/// Information about a pending task
 struct PendingTask {
     let requestId: String
     let registrationDate: Int64

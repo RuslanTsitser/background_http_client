@@ -6,37 +6,35 @@
 // For more information about Flutter integration tests, please see
 // https://flutter.dev/to/integration-testing
 
+import 'package:background_http_client/background_http_client.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
-
-import 'package:background_http_client/background_http_client.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('BackgroundHttpClient integration test',
-      (WidgetTester tester) async {
+  testWidgets('BackgroundHttpClient integration test', (WidgetTester tester) async {
     final BackgroundHttpClient client = BackgroundHttpClient();
 
-    // Тест выполнения GET запроса
-    // Примечание: этот тест требует нативной реализации плагина
-    // В реальном приложении это будет работать после реализации нативной части
+    // Test for executing a GET request
+    // Note: this test requires a native plugin implementation
+    // In a real application this will work after the native part is implemented
 
     try {
       final requestInfo = await client.get('https://httpbin.org/get');
       expect(requestInfo.requestId, isNotEmpty);
       expect(requestInfo.requestFilePath, isNotEmpty);
 
-      // Проверяем статус (должен быть не null, так как запрос только что создан)
+      // Check status (should not be null since the request has just been created)
       final status = await client.getRequestStatus(requestInfo.requestId);
       expect(status, isNotNull);
-      
-      // Проверяем, что для несуществующего запроса возвращается null
+
+      // Check that null is returned for a non-existent request
       final nonExistentStatus = await client.getRequestStatus('non-existent-id');
       expect(nonExistentStatus, isNull);
     } catch (e) {
-      // Если нативная реализация еще не готова, тест может упасть
-      // Это нормально на этапе разработки
+      // If the native implementation is not ready yet, the test may fail
+      // This is normal during the development phase
       print('Integration test skipped: $e');
     }
   });

@@ -1,8 +1,8 @@
 import Foundation
 
-/// Mapper для преобразования TaskInfo в Dictionary для Flutter
+/// Mapper for converting TaskInfo into a Dictionary for Flutter
 struct TaskInfoMapper {
-    /// Преобразует TaskInfo в Dictionary для отправки в Flutter
+    /// Converts TaskInfo into a Dictionary for sending to Flutter
     static func toFlutterMap(_ taskInfo: TaskInfo) -> [String: Any] {
         var map: [String: Any] = [
             "id": taskInfo.id,

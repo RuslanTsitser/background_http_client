@@ -1,15 +1,15 @@
 import Foundation
 
-/// Реализация репозитория для работы с задачами HTTP запросов
+/// Repository implementation for working with HTTP request tasks.
 ///
-/// Использует TaskQueueManager для управления очередью задач,
-/// что позволяет избежать зависания при регистрации большого числа задач.
+/// Uses TaskQueueManager to manage the task queue,
+/// which helps avoid hangs when registering a large number of tasks.
 actor TaskRepositoryImpl: TaskRepository {
     private let fileStorage: FileStorageDataSource
     private let urlSession: URLSessionDataSource
     private let queueManager: TaskQueueManager
     
-    // Set для отслеживания запросов, которые находятся в процессе создания
+    // Set to track requests that are currently being created
     private var creatingTasks = Set<String>()
     
     init() {
@@ -17,13 +17,13 @@ actor TaskRepositoryImpl: TaskRepository {
         self.urlSession = URLSessionDataSource()
         self.queueManager = TaskQueueManager.shared
         
-        // Устанавливаем callback для выполнения задач из очереди
+        // Set callback for executing tasks from the queue
         Task {
             await queueManager.setExecuteCallback { [weak self] requestId in
                 await self?.executeQueuedTask(requestId: requestId)
             }
             
-            // Обрабатываем восстановленную очередь
+            // Process restored queue
             await queueManager.processQueue()
         }
     }
@@ -31,10 +31,10 @@ actor TaskRepositoryImpl: TaskRepository {
     func createTask(request: HttpRequest) async throws -> TaskInfo {
         let requestId = request.requestId ?? RequestMapper.generateRequestId()
         
-        // Защита от race condition: используем actor для синхронизации
-        // Проверяем, не создается ли уже запрос с таким requestId
+        // Race-condition protection: use the actor for synchronization
+        // Check whether a request with such requestId is already being created
         if creatingTasks.contains(requestId) {
-            // Запрос уже создается в другом потоке, ждем и возвращаем существующий
+            // Request is already being created in another context; wait and return the existing one
             try await Task.sleep(nanoseconds: 100_000_000) // 100ms
             if let existingTask = try await getTaskInfo(requestId: requestId) {
                 return existingTask
@@ -42,47 +42,47 @@ actor TaskRepositoryImpl: TaskRepository {
             throw NSError(domain: "TaskRepositoryImpl", code: -2, userInfo: [NSLocalizedDescriptionKey: "Failed to get task info after creation attempt"])
         }
         
-        // Проверяем, существует ли уже запрос с таким requestId
+        // Check whether a request with such requestId already exists
         if let existingTask = try await getTaskInfo(requestId: requestId) {
-            // Запрос уже существует
-            // Проверяем, находится ли он в очереди или активен
+            // Request already exists
+            // Check whether it is in the queue or active
             if await queueManager.isTaskPendingOrActive(requestId) {
                 return existingTask
             }
             
-            // Проверяем статус запроса
+            // Check request status
             let status = existingTask.status
             if status == .inProgress {
-                // Запрос уже выполняется, добавляем в очередь
+                // Request is already executing; enqueue it
                 _ = await queueManager.enqueue(requestId)
                 return existingTask
             } else if status == .completed || status == .failed {
-                // Запрос уже завершен, возвращаем существующий
+                // Request is already finished; return existing
                 return existingTask
             }
         }
         
-        // Помечаем, что запрос создается
+        // Mark that the request is being created
         creatingTasks.insert(requestId)
         
         defer {
-            // Убираем из множества создающихся запросов
+            // Remove from the set of requests being created
             creatingTasks.remove(requestId)
         }
         
         let registrationDate = Int64(Date().timeIntervalSince1970 * 1000)
         
-        // Сохраняем запрос в файл
+        // Save request to file
         let taskInfo = try fileStorage.saveRequest(request: request, requestId: requestId, registrationDate: registrationDate)
         
-        // Добавляем задачу в очередь (вместо прямого запуска)
-        // TaskQueueManager сам решит, когда запустить задачу
+        // Add task to the queue (instead of starting it directly)
+        // TaskQueueManager itself will decide when to start the task
         _ = await queueManager.enqueue(requestId)
         
         return taskInfo
     }
     
-    /// Выполняет задачу из очереди
+    /// Executes a task from the queue
     private func executeQueuedTask(requestId: String) async {
         guard let taskInfo = fileStorage.loadTaskInfo(requestId: requestId) else {
             print("[TaskRepositoryImpl] Task info not found for: \(requestId)")
@@ -90,7 +90,7 @@ actor TaskRepositoryImpl: TaskRepository {
             return
         }
         
-        // Загружаем данные запроса из файла
+        // Load request data from file
         guard let requestData = fileStorage.loadRequestData(requestId: requestId) else {
             print("[TaskRepositoryImpl] Request data not found for: \(requestId)")
             await queueManager.onTaskCompleted(requestId)
@@ -103,7 +103,7 @@ actor TaskRepositoryImpl: TaskRepository {
             return
         }
         
-        // Выполняем запрос
+        // Execute request
         do {
             try await urlSession.executeRequest(
                 requestId: requestId,
@@ -134,18 +134,18 @@ actor TaskRepositoryImpl: TaskRepository {
             return nil
         }
         
-        // Если статус IN_PROGRESS, проверяем актуальное состояние
+        // If status is IN_PROGRESS, check actual state
         if taskInfo.status == .inProgress {
-            // Проверяем наличие файла ответа
+            // Check if response file exists
             if let responseTaskInfo = fileStorage.loadTaskResponse(requestId: requestId),
                let responseJson = responseTaskInfo.responseJson {
-                // Файл ответа существует, значит запрос завершен
+                // Response file exists – request is completed
                 if let statusValue = responseJson["status"] as? Int,
                    let status = RequestStatus(rawValue: statusValue),
                    status != .inProgress {
-                    // Обновляем статус
+                    // Update status
                     try? fileStorage.saveStatus(requestId: requestId, status: status)
-                    // Уведомляем очередь о завершении
+                    // Notify queue that the task is completed
                     await queueManager.onTaskCompleted(requestId)
                     taskInfo = TaskInfo(
                         id: taskInfo.id,
@@ -156,15 +156,15 @@ actor TaskRepositoryImpl: TaskRepository {
                     )
                 }
             } else {
-                // Проверяем, находится ли задача в очереди (ещё не запущена)
+                // Check whether the task is in the queue (not started yet)
                 if await queueManager.isTaskQueued(requestId) {
-                    // Задача в очереди, статус IN_PROGRESS корректен
+                    // Task is in the queue; IN_PROGRESS status is correct
                     return taskInfo
                 }
                 
-                // Если задача не в очереди и не активна, возможно она потеряна
+                // If the task is neither in the queue nor active, it might be lost
                 if await !queueManager.isTaskPendingOrActive(requestId) {
-                    // Добавляем обратно в очередь
+                    // Add it back to the queue
                     _ = await queueManager.enqueue(requestId)
                 }
             }
@@ -176,7 +176,7 @@ actor TaskRepositoryImpl: TaskRepository {
     func getTaskResponse(requestId: String) async throws -> TaskInfo? {
         let response = fileStorage.loadTaskResponse(requestId: requestId)
         
-        // Если получили ответ, уведомляем очередь о завершении
+        // If we received a response, notify the queue that the task is completed
         if response?.responseJson != nil {
             await queueManager.onTaskCompleted(requestId)
         }
@@ -186,15 +186,15 @@ actor TaskRepositoryImpl: TaskRepository {
     
     func cancelTask(requestId: String) async throws -> Bool? {
         guard fileStorage.taskExists(requestId: requestId) else {
-            return nil
+            return null
         }
         
         do {
-            // Удаляем из очереди, если задача там
+            // Remove from queue if the task is there
             _ = await queueManager.removeFromQueue(requestId)
-            // Отменяем в URLSession, если задача там
+            // Cancel in URLSession if the task is there
             urlSession.cancelTask(requestId: requestId)
-            // Уведомляем очередь о завершении
+            // Notify queue that the task is completed
             await queueManager.onTaskCompleted(requestId)
             try fileStorage.saveStatus(requestId: requestId, status: .failed)
             return true
@@ -209,9 +209,9 @@ actor TaskRepositoryImpl: TaskRepository {
         }
         
         do {
-            // Удаляем из очереди
+            // Remove from queue
             _ = await queueManager.removeFromQueue(requestId)
-            // Уведомляем очередь о завершении (на случай если задача была активна)
+            // Notify queue that the task is completed (in case it was active)
             await queueManager.onTaskCompleted(requestId)
             urlSession.deleteTask(requestId: requestId)
             let deleted = fileStorage.deleteTaskFiles(requestId: requestId)
@@ -222,15 +222,15 @@ actor TaskRepositoryImpl: TaskRepository {
     }
     
     func getPendingTasks() async throws -> [PendingTask] {
-        // Получаем все задачи из файловой системы
+        // Get all tasks from the file system
         let allTaskIds = fileStorage.getAllTaskIds()
         var pendingTasks: [PendingTask] = []
         
         for requestId in allTaskIds {
-            // Проверяем, что задача в ожидании или выполняется
+            // Check that the task is pending or running
             if let taskInfo = try await getTaskInfo(requestId: requestId),
                taskInfo.status == .inProgress {
-                // Проверяем, что нет ответа (задача еще не завершена)
+                // Check that there is no response yet (task is not completed)
                 if let responseInfo = fileStorage.loadTaskResponse(requestId: requestId),
                    responseInfo.responseJson == nil {
                     pendingTasks.append(PendingTask(
@@ -250,31 +250,31 @@ actor TaskRepositoryImpl: TaskRepository {
     }
     
     func cancelAllTasks() async throws -> Int {
-        // Очищаем нашу очередь
+        // Clear our queue
         let queueCleared = await queueManager.clearAll()
-        // Отменяем активные задачи в URLSession
+        // Cancel active tasks in URLSession
         _ = urlSession.cancelAllTasks()
         return queueCleared
     }
     
     // MARK: - Queue Management Methods
     
-    /// Получает статистику очереди
+    /// Gets queue statistics
     func getQueueStats() async -> QueueStats {
         return await queueManager.getQueueStats()
     }
     
-    /// Устанавливает максимальное количество одновременных задач
+    /// Sets the maximum number of concurrent tasks
     func setMaxConcurrentTasks(_ count: Int) async {
         await queueManager.setMaxConcurrentTasks(count)
     }
     
-    /// Устанавливает максимальный размер очереди
+    /// Sets the maximum queue size
     func setMaxQueueSize(_ size: Int) async {
         await queueManager.setMaxQueueSize(size)
     }
     
-    /// Принудительно обрабатывает очередь
+    /// Forces queue processing
     func processQueue() async {
         await queueManager.processQueue()
     }

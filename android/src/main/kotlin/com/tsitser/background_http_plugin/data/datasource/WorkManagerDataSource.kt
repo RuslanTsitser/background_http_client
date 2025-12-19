@@ -10,7 +10,7 @@ import com.google.common.util.concurrent.ListenableFuture
 import java.util.concurrent.ExecutionException
 
 /**
- * Data source для работы с WorkManager
+ * Data source for working with WorkManager.
  */
 class WorkManagerDataSource(private val context: Context) {
 
@@ -18,15 +18,15 @@ class WorkManagerDataSource(private val context: Context) {
         WorkManager.getInstance(context)
     }
 
-    // Кэш для результатов проверки состояния задач
-    // Ключ: requestId, Значение: Pair(WorkStateResult, timestamp)
+    // Cache for task state check results.
+    // Key: requestId, Value: Pair(WorkStateResult, timestamp)
     private val workStateCache = mutableMapOf<String, Pair<WorkStateResult, Long>>()
     
-    // Время жизни кэша в миллисекундах (1 секунда)
+    // Cache TTL in milliseconds (1 second)
     private val cacheTtlMs = 1000L
 
     /**
-     * Запускает задачу HTTP запроса через WorkManager
+     * Enqueues an HTTP request task in WorkManager.
      */
     fun enqueueRequest(requestId: String) {
         val workRequest = OneTimeWorkRequestBuilder<HttpRequestWorker>()
@@ -47,7 +47,7 @@ class WorkManagerDataSource(private val context: Context) {
     }
 
     /**
-     * Отменяет все задачи для данного запроса
+     * Cancels all tasks for the given request.
      */
     fun cancelRequest(requestId: String) {
         workManager.cancelAllWorkByTag("request_$requestId")
@@ -56,42 +56,42 @@ class WorkManagerDataSource(private val context: Context) {
     }
 
     /**
-     * Удаляет все задачи для данного запроса
+     * Deletes all tasks for the given request.
      */
     fun deleteRequest(requestId: String) {
         cancelRequest(requestId)
     }
 
     /**
-     * Результат проверки состояния задачи в WorkManager
+     * Result of checking a task state in WorkManager.
      */
     enum class WorkStateResult {
-        /** Задача завершена успешно */
+        /** Task completed successfully */
         SUCCEEDED,
-        /** Задача завершена с ошибкой */
+        /** Task completed with error */
         FAILED,
-        /** Задача еще выполняется (ENQUEUED, RUNNING, BLOCKED) */
+        /** Task is still running (ENQUEUED, RUNNING, BLOCKED) */
         IN_PROGRESS,
-        /** Задача не найдена в WorkManager */
+        /** Task not found in WorkManager */
         NOT_FOUND
     }
 
     /**
-     * Проверяет актуальное состояние задачи в WorkManager
-     * Использует кэширование для оптимизации производительности при большом количестве запросов
-     * @param requestId ID запроса
-     * @param forceRefresh если true, игнорирует кэш и выполняет проверку
-     * @return WorkStateResult с актуальным состоянием задачи
+     * Checks the current state of a task in WorkManager.
+     * Uses caching for performance optimization with a large number of requests.
+     * @param requestId request ID
+     * @param forceRefresh if true, ignores cache and performs a fresh check
+     * @return WorkStateResult with the current task state
      */
     suspend fun getWorkState(requestId: String, forceRefresh: Boolean = false): WorkStateResult {
         val currentTime = System.currentTimeMillis()
         
-        // Проверяем кэш, если не требуется принудительное обновление
+        // Check cache if a forced refresh is not required
         if (!forceRefresh) {
             val cached = workStateCache[requestId]
             if (cached != null) {
                 val (cachedResult, cachedTime) = cached
-                // Если кэш еще актуален, возвращаем его
+                // If cache is still valid, return it
                 if (currentTime - cachedTime < cacheTtlMs) {
                     return cachedResult
                 }
@@ -102,11 +102,11 @@ class WorkManagerDataSource(private val context: Context) {
             val workInfosFuture: ListenableFuture<List<WorkInfo>> = workManager.getWorkInfosByTag("request_$requestId")
             val workInfoList = workInfosFuture.get()
             
-            // Если список пуст, задача не найдена
+            // If the list is empty, the task was not found
             if (workInfoList.isEmpty()) {
                 WorkStateResult.NOT_FOUND
             } else {
-                // Проверяем все задачи с этим тегом
+                // Check all tasks with this tag
                 var foundResult: WorkStateResult? = null
                 for (workInfo in workInfoList) {
                     when (workInfo.state) {
@@ -140,15 +140,15 @@ class WorkManagerDataSource(private val context: Context) {
             WorkStateResult.NOT_FOUND
         }
         
-        // Сохраняем результат в кэш
+        // Save result to cache
         workStateCache[requestId] = Pair(result, currentTime)
         
-        // Очищаем устаревшие записи из кэша (оставляем только последние 1000)
+        // Clean up stale cache entries (keep only the latest 1000)
         if (workStateCache.size > 1000) {
             val entriesToRemove = workStateCache.entries
                 .filter { currentTime - it.value.second > cacheTtlMs * 10 }
                 .map { it.key }
-                .take(500) // Удаляем половину устаревших
+                .take(500) // Remove half of the stale entries
             entriesToRemove.forEach { workStateCache.remove(it) }
         }
         
@@ -156,14 +156,14 @@ class WorkManagerDataSource(private val context: Context) {
     }
     
     /**
-     * Очищает кэш состояния задач
+     * Clears task state cache.
      */
     fun clearWorkStateCache() {
         workStateCache.clear()
     }
 
     /**
-     * Получает все задачи в ожидании (ENQUEUED) для указанного requestId
+     * Returns all ENQUEUED tasks for the given requestId, if any.
      */
     suspend fun getEnqueuedWorkInfo(requestId: String): WorkInfo? {
         return try {
@@ -176,7 +176,7 @@ class WorkManagerDataSource(private val context: Context) {
     }
 
     /**
-     * Проверяет, есть ли активная задача (ENQUEUED или RUNNING) для указанного requestId
+     * Checks whether there is an active task (ENQUEUED or RUNNING) for the given requestId.
      */
     suspend fun hasActiveWork(requestId: String): Boolean {
         return try {
@@ -193,15 +193,15 @@ class WorkManagerDataSource(private val context: Context) {
     }
 
     /**
-     * Отменяет все задачи
-     * @return количество отмененных задач (всегда 0, так как точное количество неизвестно)
+     * Cancels all tasks.
+     * @return number of cancelled tasks (always 0, since the exact count is unknown)
      */
     suspend fun cancelAllTasks(): Int {
         return try {
-            // Отменяем все задачи
+            // Cancel all tasks
             workManager.cancelAllWork()
-            // Возвращаем 0, так как мы не можем точно посчитать количество отмененных задач
-            // без предварительного получения списка всех задач
+            // Return 0 since we cannot precisely count cancelled tasks
+            // without first querying all tasks
             0
         } catch (e: Exception) {
             0

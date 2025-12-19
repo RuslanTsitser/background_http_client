@@ -13,7 +13,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * Обработчик вызовов методов от Flutter
+ * Handler for method calls from Flutter.
  */
 class MethodCallHandler(private val context: Context) : MethodChannel.MethodCallHandler {
 
@@ -35,7 +35,7 @@ class MethodCallHandler(private val context: Context) : MethodChannel.MethodCall
             "deleteRequest" -> handleDeleteRequest(call, result)
             "getPendingTasks" -> handleGetPendingTasks(call, result)
             "cancelAllTasks" -> handleCancelAllTasks(call, result)
-            // Новые методы для управления очередью
+            // New methods for queue management
             "getQueueStats" -> handleGetQueueStats(call, result)
             "setMaxConcurrentTasks" -> handleSetMaxConcurrentTasks(call, result)
             "setMaxQueueSize" -> handleSetMaxQueueSize(call, result)

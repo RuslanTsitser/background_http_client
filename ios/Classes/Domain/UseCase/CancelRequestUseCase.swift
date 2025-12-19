@@ -1,6 +1,6 @@
 import Foundation
 
-/// Use case для отмены задачи
+/// Use case for canceling a task
 struct CancelRequestUseCase {
     private let repository: TaskRepository
     

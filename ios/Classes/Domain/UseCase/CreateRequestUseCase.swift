@@ -1,6 +1,6 @@
 import Foundation
 
-/// Use case для создания HTTP запроса
+/// Use case for creating HTTP request
 struct CreateRequestUseCase {
     private let repository: TaskRepository
     

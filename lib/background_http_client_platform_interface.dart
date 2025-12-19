@@ -2,125 +2,125 @@ import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
 import 'background_http_client_method_channel.dart';
 
-/// Абстрактный класс платформенного интерфейса для background_http_client
+/// Abstract platform interface class for background_http_client
 abstract class BackgroundHttpClientPlatform extends PlatformInterface {
-  /// Конструктор платформенного интерфейса
+  /// Platform interface constructor
   BackgroundHttpClientPlatform() : super(token: _token);
 
   static final Object _token = Object();
 
   static BackgroundHttpClientPlatform _instance = MethodChannelBackgroundHttpClient();
 
-  /// Экземпляр [BackgroundHttpClientPlatform] по умолчанию
+  /// Default instance of [BackgroundHttpClientPlatform]
   ///
-  /// По умолчанию используется [MethodChannelBackgroundHttpClient]
+  /// By default, [MethodChannelBackgroundHttpClient] is used.
   static BackgroundHttpClientPlatform get instance => _instance;
 
-  /// Платформенные реализации должны установить это значение
-  /// своим собственным классом, расширяющим [BackgroundHttpClientPlatform]
-  /// при регистрации
+  /// Platform implementations should set this value
+  /// to their own class that extends [BackgroundHttpClientPlatform]
+  /// when registering.
   static set instance(BackgroundHttpClientPlatform instance) {
     PlatformInterface.verifyToken(instance, _token);
     _instance = instance;
   }
 
-  /// Создает HTTP запрос в нативном HTTP сервисе
+  /// Creates an HTTP request in the native HTTP service
   ///
-  /// [requestJson] - JSON представление [HttpRequest]
+  /// [requestJson] - JSON representation of [HttpRequest]
   ///
-  /// Возвращает JSON с [TaskInfo] (id, status, path, registrationDate)
+  /// Returns JSON with [TaskInfo] (id, status, path, registrationDate)
   Future<Map<String, dynamic>> createRequest(Map<String, dynamic> requestJson) {
     throw UnimplementedError('createRequest() has not been implemented.');
   }
 
-  /// Получает статус задачи по ID
+  /// Gets task status by ID
   ///
-  /// [requestId] - ID задачи
+  /// [requestId] - task ID
   ///
-  /// Возвращает JSON с [TaskInfo] (id, status, path, registrationDate) или null, если задача не найдена
+  /// Returns JSON with [TaskInfo] (id, status, path, registrationDate) or null if the task is not found
   Future<Map<String, dynamic>?> getRequestStatus(String requestId) {
     throw UnimplementedError('getRequestStatus() has not been implemented.');
   }
 
-  /// Получает ответ от сервера по ID задачи
+  /// Gets server response by task ID
   ///
-  /// [requestId] - ID задачи
+  /// [requestId] - task ID
   ///
-  /// Возвращает JSON с [TaskInfo] (id, status, path, registrationDate, responseJson) или null, если задача не найдена
+  /// Returns JSON with [TaskInfo] (id, status, path, registrationDate, responseJson) or null if the task is not found
   Future<Map<String, dynamic>?> getResponse(String requestId) {
     throw UnimplementedError('getResponse() has not been implemented.');
   }
 
-  /// Отменяет задачу по ID
+  /// Cancels a task by ID
   ///
-  /// [requestId] - ID задачи для отмены
+  /// [requestId] - task ID to cancel
   ///
-  /// Возвращает true если задача отменена, false если не получилось отменить, null если задачи не существует
+  /// Returns true if the task was cancelled, false if it could not be cancelled, null if the task does not exist
   Future<bool?> cancelRequest(String requestId) {
     throw UnimplementedError('cancelRequest() has not been implemented.');
   }
 
-  /// Удаляет задачу и все связанные файлы по ID
+  /// Deletes a task and all related files by ID
   ///
-  /// [requestId] - ID задачи для удаления
+  /// [requestId] - task ID to delete
   ///
-  /// Возвращает true если задача удалена, false если не получилось удалить, null если задачи не существует
+  /// Returns true if the task was deleted, false if it could not be deleted, null if the task does not exist
   Future<bool?> deleteRequest(String requestId) {
     throw UnimplementedError('deleteRequest() has not been implemented.');
   }
 
-  /// Получает stream с ID завершенных задач
+  /// Gets a stream with IDs of completed tasks
   ///
-  /// Возвращает Stream<String> с ID задач, которые были успешно завершены (HTTP статус 200-299)
+  /// Returns Stream<String> with IDs of tasks that have been successfully completed (HTTP status 200-299)
   Stream<String> getCompletedTasksStream() {
     throw UnimplementedError('getCompletedTasksStream() has not been implemented.');
   }
 
-  /// Получает список задач в ожидании с датами добавления
+  /// Gets a list of pending tasks with registration dates
   ///
-  /// Возвращает список [PendingTask] с ID задач и датами их регистрации
+  /// Returns a list of [PendingTask] with task IDs and their registration dates
   Future<List<Map<String, dynamic>>> getPendingTasks() {
     throw UnimplementedError('getPendingTasks() has not been implemented.');
   }
 
-  /// Отменяет все задачи
+  /// Cancels all tasks
   ///
-  /// Возвращает количество отмененных задач
+  /// Returns the number of cancelled tasks
   Future<int> cancelAllTasks() {
     throw UnimplementedError('cancelAllTasks() has not been implemented.');
   }
 
-  /// Получает статистику очереди задач
+  /// Gets task queue statistics
   ///
-  /// Возвращает Map с полями: pendingCount, activeCount, maxConcurrent, maxQueueSize
+  /// Returns a Map with fields: pendingCount, activeCount, maxConcurrent, maxQueueSize
   Future<Map<String, dynamic>> getQueueStats() {
     throw UnimplementedError('getQueueStats() has not been implemented.');
   }
 
-  /// Устанавливает максимальное количество одновременных задач
+  /// Sets the maximum number of concurrent tasks
   ///
-  /// [count] - максимальное количество одновременных задач (минимум 1)
+  /// [count] - maximum number of concurrent tasks (minimum 1)
   Future<bool> setMaxConcurrentTasks(int count) {
     throw UnimplementedError('setMaxConcurrentTasks() has not been implemented.');
   }
 
-  /// Устанавливает максимальный размер очереди
+  /// Sets the maximum queue size
   ///
-  /// [size] - максимальный размер очереди (минимум 1)
+  /// [size] - maximum queue size (minimum 1)
   Future<bool> setMaxQueueSize(int size) {
     throw UnimplementedError('setMaxQueueSize() has not been implemented.');
   }
 
-  /// Синхронизирует состояние очереди с реальным состоянием задач
+  /// Synchronizes the queue state with the actual task state
   ///
-  /// Вызывается для очистки "зависших" задач
+  /// Called to clean up "stuck" tasks
   Future<bool> syncQueueState() {
     throw UnimplementedError('syncQueueState() has not been implemented.');
   }
 
-  /// Принудительно обрабатывает очередь
+  /// Forces queue processing
   ///
-  /// Запускает ожидающие задачи, если есть свободные слоты
+  /// Starts pending tasks if there are free slots
   Future<bool> processQueue() {
     throw UnimplementedError('processQueue() has not been implemented.');
   }

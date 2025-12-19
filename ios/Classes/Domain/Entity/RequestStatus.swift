@@ -1,6 +1,6 @@
 import Foundation
 
-/// Статусы выполнения HTTP запроса
+/// HTTP request execution statuses
 enum RequestStatus: Int {
     case inProgress = 0
     case completed = 1

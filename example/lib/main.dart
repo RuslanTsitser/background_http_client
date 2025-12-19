@@ -54,7 +54,7 @@ class _MyAppState extends State<MyApp> {
         return;
       }
 
-      // Обновляем статусы только для запросов без ответа
+      // Update statuses only for requests that do not have a response yet
       final pendingRequests = _requests.where((r) => r.responseFilePath == null).toList();
 
       if (pendingRequests.isEmpty) return;
@@ -63,7 +63,7 @@ class _MyAppState extends State<MyApp> {
         try {
           final taskInfo = await _client.getRequestStatus(request.id);
 
-          // Если задача не найдена - пропускаем
+          // If the task is not found - skip it
           if (taskInfo == null) {
             continue;
           }
@@ -73,7 +73,7 @@ class _MyAppState extends State<MyApp> {
             if (responseTaskInfo != null && mounted) {
               setState(() {
                 request.status = responseTaskInfo.statusEnum;
-                // Извлекаем responseFilePath из responseJson если есть
+                // Extract responseFilePath from responseJson if present
                 if (responseTaskInfo.responseJson != null) {
                   final responseFilePath = responseTaskInfo.responseJson!['responseFilePath'] as String?;
                   if (responseFilePath != null && responseFilePath.isNotEmpty) {
@@ -89,7 +89,7 @@ class _MyAppState extends State<MyApp> {
             });
           }
         } catch (e) {
-          // Игнорируем ошибки при проверке статуса
+          // Ignore errors when checking status
         }
       }
     });
@@ -116,7 +116,7 @@ class _MyAppState extends State<MyApp> {
         );
       });
     } catch (e) {
-      // Обработка ошибки
+      // Error handling
     }
   }
 
@@ -146,7 +146,7 @@ class _MyAppState extends State<MyApp> {
         );
       });
     } catch (e) {
-      // Обработка ошибки
+      // Error handling
     }
   }
 
@@ -175,7 +175,7 @@ class _MyAppState extends State<MyApp> {
         );
       });
     } catch (e) {
-      // Обработка ошибки
+      // Error handling
     }
   }
 
@@ -183,7 +183,7 @@ class _MyAppState extends State<MyApp> {
     try {
       final tempDir = await getTemporaryDirectory();
       final testFile = File('${tempDir.path}/test_file.txt');
-      await testFile.writeAsString('Это тестовый файл для multipart запроса\nВремя создания: ${DateTime.now()}');
+      await testFile.writeAsString('This is a test file for multipart request\nCreated at: ${DateTime.now()}');
 
       if (!await testFile.exists()) {
         return;
@@ -191,7 +191,7 @@ class _MyAppState extends State<MyApp> {
 
       final taskInfo = await _client.postMultipart(
         'https://httpbin.org/post',
-        fields: {'description': 'Тестовый файл', 'category': 'example'},
+        fields: {'description': 'Test file', 'category': 'example'},
         files: {'file': MultipartFile(filePath: testFile.path, filename: 'test_file.txt', contentType: 'text/plain')},
         requestId: 'multipart-request-${DateTime.now().millisecondsSinceEpoch}',
       );
@@ -213,7 +213,7 @@ class _MyAppState extends State<MyApp> {
         );
       });
     } catch (e) {
-      // Обработка ошибки
+      // Error handling
     }
   }
 
@@ -239,7 +239,7 @@ class _MyAppState extends State<MyApp> {
         );
       });
     } catch (e) {
-      // Обработка ошибки
+      // Error handling
     }
   }
 
@@ -253,16 +253,16 @@ class _MyAppState extends State<MyApp> {
     try {
       await OpenFile.open(filePath);
     } catch (e) {
-      // Обработка ошибки
+      // Error handling
     }
   }
 
   String _getStatusText(RequestStatus? status) {
-    if (status == null) return 'Неизвестно';
+    if (status == null) return 'Unknown';
     return switch (status) {
-      RequestStatus.inProgress => 'В процессе',
-      RequestStatus.completed => 'Завершен',
-      RequestStatus.failed => 'Ошибка',
+      RequestStatus.inProgress => 'In progress',
+      RequestStatus.completed => 'Completed',
+      RequestStatus.failed => 'Error',
     };
   }
 
@@ -287,7 +287,7 @@ class _MyAppState extends State<MyApp> {
       home: Scaffold(
         appBar: AppBar(
           title: const Text('Background HTTP Client Example'),
-          actions: [IconButton(icon: const Icon(Icons.clear), onPressed: _clearRequests, tooltip: 'Очистить список')],
+          actions: [IconButton(icon: const Icon(Icons.clear), onPressed: _clearRequests, tooltip: 'Clear list')],
         ),
         body: Column(
           children: [
@@ -304,7 +304,7 @@ class _MyAppState extends State<MyApp> {
                       Expanded(
                         child: ElevatedButton(
                           onPressed: _createGetRequestWithCustomId,
-                          child: const Text('GET (кастомный ID)'),
+                          child: const Text('GET (custom ID)'),
                         ),
                       ),
                     ],
@@ -326,7 +326,7 @@ class _MyAppState extends State<MyApp> {
                     width: double.infinity,
                     child: ElevatedButton(
                       onPressed: _createLargeFileDownload,
-                      child: const Text('Скачать большой файл (потоково)'),
+                      child: const Text('Download large file (streaming)'),
                     ),
                   ),
                 ],
@@ -335,7 +335,7 @@ class _MyAppState extends State<MyApp> {
             const Divider(),
             Expanded(
               child: _requests.isEmpty
-                  ? const Center(child: Text('Список запросов пуст'))
+                  ? const Center(child: Text('Request list is empty'))
                   : ListView.builder(
                       controller: _scrollController,
                       padding: const EdgeInsets.all(16.0),
@@ -350,14 +350,14 @@ class _MyAppState extends State<MyApp> {
                               children: [
                                 const SizedBox(height: 4),
                                 Text(
-                                  'Зарегистрировано: ${request.registrationDate.toString().substring(0, 19)}',
+                                  'Registered: ${request.registrationDate.toString().substring(0, 19)}',
                                   style: const TextStyle(fontSize: 10, color: Colors.grey),
                                 ),
                                 const SizedBox(height: 4),
                                 TextButton(
                                   onPressed: () => _openFile(request.path),
                                   child: Text(
-                                    'Запрос: ${request.path.split('/').last}',
+                                    'Request: ${request.path.split('/').last}',
                                     style: const TextStyle(fontSize: 12),
                                   ),
                                 ),
@@ -366,7 +366,7 @@ class _MyAppState extends State<MyApp> {
                                   TextButton(
                                     onPressed: () => _openFile(request.responseFilePath!),
                                     child: Text(
-                                      'Ответ: ${request.responseFilePath?.split('/').last}',
+                                      'Response: ${request.responseFilePath?.split('/').last}',
                                       style: const TextStyle(fontSize: 12),
                                     ),
                                   ),
