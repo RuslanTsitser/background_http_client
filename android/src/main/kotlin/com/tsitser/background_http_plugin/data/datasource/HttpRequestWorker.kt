@@ -163,6 +163,9 @@ class HttpRequestWorker(
             Result.success()
         } catch (e: CancellationException) {
             // Task cancellation is normal behavior, not an error
+            // But we must notify the queue manager to free the slot!
+            Log.d(TAG, "Request $requestId was cancelled")
+            notifyTaskCompleted(requestId)
             // Rethrow to let WorkManager handle the cancellation correctly
             throw e
         } catch (e: Exception) {

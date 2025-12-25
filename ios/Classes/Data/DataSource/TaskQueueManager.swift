@@ -50,8 +50,11 @@ actor TaskQueueManager {
     // MARK: - Public Methods
     
     /// Sets callback for executing a task
-    func setExecuteCallback(_ callback: @escaping (String) async -> Void) {
+    func setExecuteCallback(_ callback: @escaping (String) async -> Void) async {
         self.executeTaskCallback = callback
+        print("[TaskQueueManager] Execute callback set, processing pending queue...")
+        // Process any tasks that were enqueued before callback was set
+        await processQueueInternal()
     }
     
     /// Adds a task to the queue.
@@ -166,6 +169,12 @@ actor TaskQueueManager {
     // MARK: - Private Methods
     
     private func processQueueInternal() async {
+        // Do not process the queue if callback is not set yet
+        guard executeTaskCallback != nil else {
+            print("[TaskQueueManager] Cannot process queue: executeTaskCallback is not set")
+            return
+        }
+        
         while activeTasks.count < maxConcurrentTasks && !pendingQueue.isEmpty {
             let requestId = pendingQueue.removeFirst()
             activeTasks.insert(requestId)
