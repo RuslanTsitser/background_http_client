@@ -25,6 +25,8 @@ class MethodCallHandler {
             handleCreateRequest(call: call, result: result)
         case "getRequestStatus":
             handleGetRequestStatus(call: call, result: result)
+        case "getBatchRequestStatus":
+            handleGetBatchRequestStatus(call: call, result: result)
         case "getResponse":
             handleGetResponse(call: call, result: result)
         case "cancelRequest":
@@ -87,6 +89,31 @@ class MethodCallHandler {
                 }
             } catch {
                 result(FlutterError(code: "GET_STATUS_FAILED", message: error.localizedDescription, details: nil))
+            }
+        }
+    }
+    
+    private func handleGetBatchRequestStatus(call: FlutterMethodCall, result: @escaping FlutterResult) {
+        guard let args = call.arguments as? [String: Any],
+              let requestIds = args["requestIds"] as? [String] else {
+            result(FlutterError(code: "INVALID_ARGUMENT", message: "Request IDs list is required", details: nil))
+            return
+        }
+        
+        Task {
+            do {
+                var batchResult: [String: [String: Any]?] = [:]
+                for requestId in requestIds {
+                    let taskInfo = try await getRequestStatusUseCase.execute(requestId: requestId)
+                    if let taskInfo = taskInfo {
+                        batchResult[requestId] = TaskInfoMapper.toFlutterMap(taskInfo)
+                    } else {
+                        batchResult[requestId] = nil
+                    }
+                }
+                result(batchResult)
+            } catch {
+                result(FlutterError(code: "GET_BATCH_STATUS_FAILED", message: error.localizedDescription, details: nil))
             }
         }
     }

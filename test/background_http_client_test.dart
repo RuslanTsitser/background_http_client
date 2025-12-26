@@ -26,6 +26,21 @@ class MockBackgroundHttpClientPlatform with MockPlatformInterfaceMixin implement
   }
 
   @override
+  Future<Map<String, Map<String, dynamic>?>> getBatchRequestStatus(
+      List<String> requestIds) async {
+    final Map<String, Map<String, dynamic>?> result = {};
+    for (final requestId in requestIds) {
+      result[requestId] = {
+        'id': requestId,
+        'status': RequestStatus.completed.index,
+        'path': '/path/to/request/file',
+        'registrationDate': DateTime.now().millisecondsSinceEpoch,
+      };
+    }
+    return result;
+  }
+
+  @override
   Future<Map<String, dynamic>?> getResponse(String requestId) async {
     return {
       'id': requestId,
@@ -114,6 +129,16 @@ class MockBackgroundHttpClientPlatformForNullStatus
   @override
   Future<Map<String, dynamic>?> getRequestStatus(String requestId) async {
     return null;
+  }
+
+  @override
+  Future<Map<String, Map<String, dynamic>?>> getBatchRequestStatus(
+      List<String> requestIds) async {
+    final Map<String, Map<String, dynamic>?> result = {};
+    for (final requestId in requestIds) {
+      result[requestId] = null;
+    }
+    return result;
   }
 
   @override

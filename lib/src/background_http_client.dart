@@ -351,6 +351,27 @@ class BackgroundHttpClient {
     return TaskInfo.fromJson(result);
   }
 
+  /// Gets task statuses by IDs (batch operation)
+  ///
+  /// [requestIds] - list of task IDs
+  ///
+  /// Returns Map<String, TaskInfo?> where key is requestId and value is TaskInfo or null if not found
+  Future<Map<String, TaskInfo?>> getBatchRequestStatus(
+      List<String> requestIds) async {
+    final result = await _platform.getBatchRequestStatus(requestIds);
+    final Map<String, TaskInfo?> batchResult = {};
+    for (final entry in result.entries) {
+      final requestId = entry.key;
+      final value = entry.value;
+      if (value == null) {
+        batchResult[requestId] = null;
+      } else {
+        batchResult[requestId] = TaskInfo.fromJson(value);
+      }
+    }
+    return batchResult;
+  }
+
   /// Gets the server response by task ID
   ///
   /// [requestId] - task ID

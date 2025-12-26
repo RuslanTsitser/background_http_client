@@ -30,6 +30,7 @@ class MethodCallHandler(private val context: Context) : MethodChannel.MethodCall
         when (call.method) {
             "createRequest" -> handleCreateRequest(call, result)
             "getRequestStatus" -> handleGetRequestStatus(call, result)
+            "getBatchRequestStatus" -> handleGetBatchRequestStatus(call, result)
             "getResponse" -> handleGetResponse(call, result)
             "cancelRequest" -> handleCancelRequest(call, result)
             "deleteRequest" -> handleDeleteRequest(call, result)
@@ -101,6 +102,47 @@ class MethodCallHandler(private val context: Context) : MethodChannel.MethodCall
                     }
                 } catch (e: Exception) {
                     result.error("GET_STATUS_FAILED", e.message, null)
+                }
+            }
+        } catch (e: Exception) {
+            result.error("INVALID_ARGUMENT", e.message, null)
+        }
+    }
+
+    private fun handleGetBatchRequestStatus(call: MethodCall, result: MethodChannel.Result) {
+        try {
+            @Suppress("UNCHECKED_CAST")
+            val args = call.arguments as? Map<*, *>
+                ?: run {
+                    result.error("INVALID_ARGUMENT", "Request IDs are required", null)
+                    return
+                }
+
+            @Suppress("UNCHECKED_CAST")
+            val requestIds = args["requestIds"] as? List<*>
+                ?: run {
+                    result.error("INVALID_ARGUMENT", "Request IDs list is required", null)
+                    return
+                }
+
+            scope.launch {
+                try {
+                    val batchResult = withContext(Dispatchers.IO) {
+                        val resultMap = mutableMapOf<String, Map<String, Any>?>()
+                        for (requestIdObj in requestIds) {
+                            val requestId = requestIdObj as? String ?: continue
+                            val taskInfo = getRequestStatusUseCase(requestId)
+                            if (taskInfo != null) {
+                                resultMap[requestId] = TaskInfoMapper.toFlutterMap(taskInfo)
+                            } else {
+                                resultMap[requestId] = null
+                            }
+                        }
+                        resultMap
+                    }
+                    result.success(batchResult)
+                } catch (e: Exception) {
+                    result.error("GET_BATCH_STATUS_FAILED", e.message, null)
                 }
             }
         } catch (e: Exception) {

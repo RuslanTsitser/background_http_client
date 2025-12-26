@@ -53,6 +53,41 @@ class MethodChannelBackgroundHttpClient extends BackgroundHttpClientPlatform {
   }
 
   @override
+  Future<Map<String, Map<String, dynamic>?>> getBatchRequestStatus(
+      List<String> requestIds) async {
+    try {
+      final result = await methodChannel.invokeMethod<Map<Object?, Object?>>(
+        'getBatchRequestStatus',
+        {'requestIds': requestIds},
+      );
+      if (result == null) {
+        // Return empty map if result is null
+        return {};
+      }
+      // Convert result to Map<String, Map<String, dynamic>?>
+      final Map<String, Map<String, dynamic>?> batchResult = {};
+      for (final entry in result.entries) {
+        final requestId = entry.key as String;
+        final value = entry.value;
+        if (value == null) {
+          batchResult[requestId] = null;
+        } else {
+          batchResult[requestId] =
+              Map<String, dynamic>.from(value as Map<Object?, Object?>);
+        }
+      }
+      return batchResult;
+    } on PlatformException catch (e) {
+      // Return empty map on error, or rethrow if needed
+      throw PlatformException(
+        code: e.code,
+        message: e.message,
+        details: e.details,
+      );
+    }
+  }
+
+  @override
   Future<Map<String, dynamic>?> getResponse(String requestId) async {
     try {
       final result = await methodChannel.invokeMethod<Map<Object?, Object?>>(

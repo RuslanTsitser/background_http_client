@@ -9,8 +9,7 @@ abstract class BackgroundHttpClientPlatform extends PlatformInterface {
 
   static final Object _token = Object();
 
-  static BackgroundHttpClientPlatform _instance =
-      MethodChannelBackgroundHttpClient();
+  static BackgroundHttpClientPlatform _instance = MethodChannelBackgroundHttpClient();
 
   /// Default instance of [BackgroundHttpClientPlatform]
   ///
@@ -41,6 +40,15 @@ abstract class BackgroundHttpClientPlatform extends PlatformInterface {
   /// Returns JSON with [TaskInfo] (id, status, path, registrationDate) or null if the task is not found
   Future<Map<String, dynamic>?> getRequestStatus(String requestId) {
     throw UnimplementedError('getRequestStatus() has not been implemented.');
+  }
+
+  /// Gets task statuses by IDs (batch operation)
+  ///
+  /// [requestIds] - list of task IDs
+  ///
+  /// Returns Map<String, Map<String, dynamic>?> where key is requestId and value is TaskInfo JSON or null if not found
+  Future<Map<String, Map<String, dynamic>?>> getBatchRequestStatus(List<String> requestIds) {
+    throw UnimplementedError('getBatchRequestStatus() has not been implemented.');
   }
 
   /// Gets server response by task ID
@@ -74,8 +82,7 @@ abstract class BackgroundHttpClientPlatform extends PlatformInterface {
   ///
   /// Returns [Stream] of [String] with IDs of tasks that have been successfully completed (HTTP status 200-299)
   Stream<String> getCompletedTasksStream() {
-    throw UnimplementedError(
-        'getCompletedTasksStream() has not been implemented.');
+    throw UnimplementedError('getCompletedTasksStream() has not been implemented.');
   }
 
   /// Gets a list of pending tasks with registration dates
@@ -103,8 +110,7 @@ abstract class BackgroundHttpClientPlatform extends PlatformInterface {
   ///
   /// [count] - maximum number of concurrent tasks (minimum 1)
   Future<bool> setMaxConcurrentTasks(int count) {
-    throw UnimplementedError(
-        'setMaxConcurrentTasks() has not been implemented.');
+    throw UnimplementedError('setMaxConcurrentTasks() has not been implemented.');
   }
 
   /// Sets the maximum queue size
