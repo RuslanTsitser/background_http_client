@@ -47,33 +47,39 @@ class TaskRepositoryImpl(
                     ?: throw IllegalStateException("Failed to get task info after creation attempt")
             }
             
-            // Check whether a request with such requestId already exists
-            val existingTask = fileStorage.loadTaskInfo(requestId)
-            if (existingTask != null) {
-                // Request already exists
-                // Check whether it is in the queue or active
-                if (queueManager.isTaskPendingOrActive(requestId)) {
-                    // Task is already in the queue or running
-                    return@withLock existingTask
-                }
-                
-                // Check state in WorkManager
-                val workState = workManager.getWorkState(requestId, forceRefresh = false)
-                when (workState) {
-                    WorkManagerDataSource.WorkStateResult.IN_PROGRESS,
-                    WorkManagerDataSource.WorkStateResult.SUCCEEDED,
-                    WorkManagerDataSource.WorkStateResult.FAILED -> {
-                        // Request is already running or completed; return existing
+            // Optimization: Fast check if task exists before loading full info
+            // This avoids expensive file read for new tasks
+            if (fileStorage.taskExists(requestId)) {
+                // Task exists, load full info
+                val existingTask = fileStorage.loadTaskInfo(requestId)
+                if (existingTask != null) {
+                    // Request already exists
+                    // Check whether it is in the queue or active
+                    if (queueManager.isTaskPendingOrActive(requestId)) {
+                        // Task is already in the queue or running
                         return@withLock existingTask
                     }
-                    WorkManagerDataSource.WorkStateResult.NOT_FOUND -> {
-                        // Request exists in file storage, but not in WorkManager and not in the queue
-                        // Enqueue it for execution
-                        queueManager.enqueue(requestId)
-                        return@withLock existingTask
+                    
+                    // Check state in WorkManager
+                    val workState = workManager.getWorkState(requestId, forceRefresh = false)
+                    when (workState) {
+                        WorkManagerDataSource.WorkStateResult.IN_PROGRESS,
+                        WorkManagerDataSource.WorkStateResult.SUCCEEDED,
+                        WorkManagerDataSource.WorkStateResult.FAILED -> {
+                            // Request is already running or completed; return existing
+                            return@withLock existingTask
+                        }
+                        WorkManagerDataSource.WorkStateResult.NOT_FOUND -> {
+                            // Request exists in file storage, but not in WorkManager and not in the queue
+                            // Enqueue it for execution
+                            queueManager.enqueue(requestId)
+                            return@withLock existingTask
+                        }
                     }
                 }
             }
+            // Optimization: For new tasks (taskExists == false), skip WorkManager check
+            // New tasks don't exist in WorkManager, so checking is unnecessary
             
             // Mark that the request is being created
             creatingTasks.add(requestId)
