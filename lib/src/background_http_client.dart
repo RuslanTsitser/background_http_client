@@ -492,4 +492,14 @@ class BackgroundHttpClient {
   Future<bool> processQueue() async {
     return await _platform.processQueue();
   }
+
+  /// Gets pending completed tasks that were queued while Flutter wasn't listening
+  ///
+  /// Returns a list of task IDs that were completed but couldn't be delivered via EventChannel.
+  /// This is a fallback mechanism for when WorkManager runs in a separate process.
+  ///
+  /// Usage: Call this periodically to check for completed tasks that weren't delivered via stream.
+  Future<List<String>> getPendingCompletedTasks() async {
+    return await _platform.getPendingCompletedTasks();
+  }
 }

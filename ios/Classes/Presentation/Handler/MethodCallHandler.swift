@@ -48,6 +48,8 @@ class MethodCallHandler {
             handleSyncQueueState(call: call, result: result)
         case "processQueue":
             handleProcessQueue(call: call, result: result)
+        case "getPendingCompletedTasks":
+            handleGetPendingCompletedTasks(call: call, result: result)
         default:
             result(FlutterMethodNotImplemented)
         }
@@ -247,6 +249,13 @@ class MethodCallHandler {
             await repository.processQueue()
             result(true)
         }
+    }
+    
+    /// Gets pending completed tasks from UserDefaults queue and delivers them.
+    /// This is a fallback for when the EventChannel couldn't deliver events directly.
+    private func handleGetPendingCompletedTasks(call: FlutterMethodCall, result: @escaping FlutterResult) {
+        let pendingTasks = TaskCompletedEventStreamHandler.getPendingCompletedTasks()
+        result(pendingTasks)
     }
 }
 

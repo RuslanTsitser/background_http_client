@@ -42,6 +42,7 @@ class MethodCallHandler(private val context: Context) : MethodChannel.MethodCall
             "setMaxQueueSize" -> handleSetMaxQueueSize(call, result)
             "syncQueueState" -> handleSyncQueueState(call, result)
             "processQueue" -> handleProcessQueue(call, result)
+            "getPendingCompletedTasks" -> handleGetPendingCompletedTasks(call, result)
             else -> result.notImplemented()
         }
     }
@@ -366,6 +367,42 @@ class MethodCallHandler(private val context: Context) : MethodChannel.MethodCall
                 android.util.Log.e("MethodCallHandler", "Error processing queue", e)
                 result.error("PROCESS_QUEUE_FAILED", e.message, null)
             }
+        }
+    }
+    
+    /**
+     * Gets pending completed tasks from SharedPreferences queue and delivers them via EventChannel.
+     * This is a fallback for when WorkManager process couldn't deliver events directly.
+     */
+    private fun handleGetPendingCompletedTasks(call: MethodCall, result: MethodChannel.Result) {
+        try {
+            val prefs = context.getSharedPreferences("background_http_completed_tasks", android.content.Context.MODE_PRIVATE)
+            val pendingJson = prefs.getString("pending_completed_tasks", "[]") ?: "[]"
+            val pending = try {
+                org.json.JSONArray(pendingJson)
+            } catch (e: Exception) {
+                android.util.Log.e("MethodCallHandler", "Error parsing pending tasks", e)
+                org.json.JSONArray()
+            }
+            
+            val taskIds = mutableListOf<String>()
+            for (i in 0 until pending.length()) {
+                val requestId = pending.optString(i)
+                if (requestId.isNotEmpty()) {
+                    taskIds.add(requestId)
+                }
+            }
+            
+            // Clear pending tasks after reading
+            if (taskIds.isNotEmpty()) {
+                prefs.edit().putString("pending_completed_tasks", "[]").apply()
+                android.util.Log.d("MethodCallHandler", "Returned ${taskIds.size} pending completed tasks")
+            }
+            
+            result.success(taskIds)
+        } catch (e: Exception) {
+            android.util.Log.e("MethodCallHandler", "Error getting pending completed tasks", e)
+            result.error("GET_PENDING_COMPLETED_TASKS_FAILED", e.message, null)
         }
     }
 }

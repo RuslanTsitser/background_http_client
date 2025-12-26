@@ -13,12 +13,10 @@ class MethodChannelBackgroundHttpClient extends BackgroundHttpClientPlatform {
 
   /// Event channel for receiving events about completed tasks
   @visibleForTesting
-  final eventChannel =
-      const EventChannel('background_http_client/task_completed');
+  final eventChannel = const EventChannel('background_http_client/task_completed');
 
   @override
-  Future<Map<String, dynamic>> createRequest(
-      Map<String, dynamic> requestJson) async {
+  Future<Map<String, dynamic>> createRequest(Map<String, dynamic> requestJson) async {
     final result = await methodChannel.invokeMethod<Map<Object?, Object?>>(
       'createRequest',
       requestJson,
@@ -53,8 +51,7 @@ class MethodChannelBackgroundHttpClient extends BackgroundHttpClientPlatform {
   }
 
   @override
-  Future<Map<String, Map<String, dynamic>?>> getBatchRequestStatus(
-      List<String> requestIds) async {
+  Future<Map<String, Map<String, dynamic>?>> getBatchRequestStatus(List<String> requestIds) async {
     try {
       final result = await methodChannel.invokeMethod<Map<Object?, Object?>>(
         'getBatchRequestStatus',
@@ -72,8 +69,7 @@ class MethodChannelBackgroundHttpClient extends BackgroundHttpClientPlatform {
         if (value == null) {
           batchResult[requestId] = null;
         } else {
-          batchResult[requestId] =
-              Map<String, dynamic>.from(value as Map<Object?, Object?>);
+          batchResult[requestId] = Map<String, dynamic>.from(value as Map<Object?, Object?>);
         }
       }
       return batchResult;
@@ -149,15 +145,11 @@ class MethodChannelBackgroundHttpClient extends BackgroundHttpClientPlatform {
   @override
   Future<List<Map<String, dynamic>>> getPendingTasks() async {
     try {
-      final result =
-          await methodChannel.invokeMethod<List<Object?>>('getPendingTasks');
+      final result = await methodChannel.invokeMethod<List<Object?>>('getPendingTasks');
       if (result == null) {
         return [];
       }
-      return result
-          .map((item) =>
-              Map<String, dynamic>.from(item as Map<Object?, Object?>))
-          .toList();
+      return result.map((item) => Map<String, dynamic>.from(item as Map<Object?, Object?>)).toList();
     } on PlatformException catch (e) {
       throw PlatformException(
         code: e.code,
@@ -184,8 +176,7 @@ class MethodChannelBackgroundHttpClient extends BackgroundHttpClientPlatform {
   @override
   Future<Map<String, dynamic>> getQueueStats() async {
     try {
-      final result = await methodChannel
-          .invokeMethod<Map<Object?, Object?>>('getQueueStats');
+      final result = await methodChannel.invokeMethod<Map<Object?, Object?>>('getQueueStats');
       if (result == null) {
         return {
           'pendingCount': 0,
@@ -257,6 +248,23 @@ class MethodChannelBackgroundHttpClient extends BackgroundHttpClientPlatform {
     try {
       final result = await methodChannel.invokeMethod<bool>('processQueue');
       return result ?? false;
+    } on PlatformException catch (e) {
+      throw PlatformException(
+        code: e.code,
+        message: e.message,
+        details: e.details,
+      );
+    }
+  }
+
+  @override
+  Future<List<String>> getPendingCompletedTasks() async {
+    try {
+      final result = await methodChannel.invokeMethod<List<Object?>>('getPendingCompletedTasks');
+      if (result == null) {
+        return [];
+      }
+      return result.cast<String>();
     } on PlatformException catch (e) {
       throw PlatformException(
         code: e.code,

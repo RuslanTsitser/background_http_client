@@ -133,4 +133,12 @@ abstract class BackgroundHttpClientPlatform extends PlatformInterface {
   Future<bool> processQueue() {
     throw UnimplementedError('processQueue() has not been implemented.');
   }
+
+  /// Gets pending completed tasks that were queued while Flutter wasn't listening
+  ///
+  /// Returns a list of task IDs that were completed but couldn't be delivered via EventChannel
+  /// This is a fallback mechanism for when WorkManager runs in a separate process
+  Future<List<String>> getPendingCompletedTasks() {
+    throw UnimplementedError('getPendingCompletedTasks() has not been implemented.');
+  }
 }

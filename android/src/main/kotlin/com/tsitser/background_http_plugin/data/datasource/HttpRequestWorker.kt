@@ -290,11 +290,12 @@ class HttpRequestWorker(
     
     /**
      * Sends an event about a completed task through EventChannel.
+     * Uses SharedPreferences queue since WorkManager may run in a different process.
      */
     private fun sendTaskCompletedEvent(requestId: String) {
         try {
-            val eventHandler = TaskCompletedEventStreamHandler.getInstance(applicationContext)
-            eventHandler.sendCompletedTask(requestId)
+            Log.d(TAG, "Queueing completed task event: $requestId")
+            TaskCompletedEventStreamHandler.queueCompletedTask(applicationContext, requestId)
         } catch (e: Exception) {
             Log.e(TAG, "Error sending task completed event for $requestId", e)
         }
