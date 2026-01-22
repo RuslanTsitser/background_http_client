@@ -1,4 +1,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
   package="com.tsitser.background_http_plugin">
   <uses-permission android:name="android.permission.INTERNET" />
+  <!-- Permissions for background work -->
+  <uses-permission android:name="android.permission.WAKE_LOCK" />
+  <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+  <!-- For Android 12+ (API 31+) -->
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+  <!-- For Android 14+ (API 34+) -->
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 </manifest>

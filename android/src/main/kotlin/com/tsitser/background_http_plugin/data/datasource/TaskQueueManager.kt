@@ -72,6 +72,10 @@ class TaskQueueManager(private val context: Context) {
     init {
         // Restore queue on initialization
         restoreQueue()
+        // Sync active tasks with WorkManager asynchronously
+        scope.launch {
+            syncActiveTasksWithWorkManager()
+        }
     }
     
     /**
@@ -261,6 +265,71 @@ class TaskQueueManager(private val context: Context) {
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to restore queue from disk", e)
+        }
+    }
+    
+    /**
+     * Synchronizes active tasks with WorkManager state.
+     * This is called during initialization to restore active tasks after app restart.
+     */
+    private suspend fun syncActiveTasksWithWorkManager() {
+        try {
+            // Get all tasks from file storage to check their WorkManager state
+            val fileStorage = FileStorageDataSource(context)
+            val allTaskIds = fileStorage.getAllTaskIds()
+            
+            if (allTaskIds.isEmpty()) {
+                Log.d(TAG, "No tasks found for WorkManager sync")
+                return
+            }
+            
+            Log.d(TAG, "Syncing ${allTaskIds.size} tasks with WorkManager state")
+            
+            var activeCount = 0
+            var completedCount = 0
+            
+            queueMutex.withLock {
+                for (requestId in allTaskIds) {
+                    // Check if task is already in queue or active
+                    if (pendingQueue.contains(requestId) || activeTasks.contains(requestId)) {
+                        continue
+                    }
+                    
+                    // Check WorkManager state
+                    val workState = workManager.getWorkState(requestId, forceRefresh = true)
+                    when (workState) {
+                        WorkManagerDataSource.WorkStateResult.IN_PROGRESS -> {
+                            // Task is active in WorkManager, add to activeTasks
+                            activeTasks.add(requestId)
+                            activeCount++
+                            Log.d(TAG, "Restored active task: $requestId")
+                        }
+                        WorkManagerDataSource.WorkStateResult.SUCCEEDED,
+                        WorkManagerDataSource.WorkStateResult.FAILED -> {
+                            // Task is completed, check if it needs to be removed from queue
+                            completedCount++
+                        }
+                        WorkManagerDataSource.WorkStateResult.NOT_FOUND -> {
+                            // Task not in WorkManager, check if it should be in queue
+                            val taskInfo = fileStorage.loadTaskInfo(requestId)
+                            if (taskInfo != null && taskInfo.status == com.tsitser.background_http_plugin.domain.entity.RequestStatus.IN_PROGRESS) {
+                                // Task is pending, add to queue
+                                if (!pendingQueue.contains(requestId)) {
+                                    pendingQueue.offer(requestId)
+                                    Log.d(TAG, "Re-queued lost task: $requestId")
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // Process queue after sync
+                processQueueInternal()
+            }
+            
+            Log.d(TAG, "WorkManager sync completed: $activeCount active, $completedCount completed")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to sync active tasks with WorkManager", e)
         }
     }
     
