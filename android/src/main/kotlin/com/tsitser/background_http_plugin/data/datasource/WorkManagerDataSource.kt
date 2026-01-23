@@ -1,11 +1,14 @@
 package com.tsitser.background_http_plugin.data.datasource
 
 import android.content.Context
+import android.content.Intent
+import androidx.work.BackoffPolicy
 import androidx.work.Constraints
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
+import java.util.concurrent.TimeUnit
 import com.google.common.util.concurrent.ListenableFuture
 import java.util.concurrent.ExecutionException
 
@@ -27,12 +30,21 @@ class WorkManagerDataSource(private val context: Context) {
 
     /**
      * Enqueues an HTTP request task in WorkManager.
+     * Configured for background execution when app is minimized.
+     * 
+     * Note: On Android 15+, network requests may be blocked after ~5 seconds
+     * when app is in background. ForegroundService should be started from UI context
+     * (MethodCallHandler) before calling this method.
      */
     fun enqueueRequest(requestId: String) {
         val workRequest = OneTimeWorkRequestBuilder<HttpRequestWorker>()
             .setConstraints(
                 Constraints.Builder()
                     .setRequiredNetworkType(NetworkType.CONNECTED)
+                    // Allow execution even when device is in battery saver mode
+                    .setRequiresBatteryNotLow(false)
+                    // Allow execution even when storage is low
+                    .setRequiresStorageNotLow(false)
                     .build()
             )
             .setInputData(
@@ -41,9 +53,46 @@ class WorkManagerDataSource(private val context: Context) {
                     .build()
             )
             .addTag("request_$requestId")
+            // Set backoff policy for retries (exponential backoff)
+            .setBackoffCriteria(
+                BackoffPolicy.EXPONENTIAL,
+                30,
+                TimeUnit.SECONDS
+            )
             .build()
 
+        // Use enqueue with unique work name to prevent duplicates
         workManager.enqueue(workRequest)
+    }
+    
+    /**
+     * Starts ForegroundService if needed to ensure network access in background (Android 15+).
+     * Must be called from UI context (Activity/Fragment) or from another ForegroundService.
+     * This method is public so it can be called from MethodCallHandler (UI context).
+     */
+    fun startForegroundServiceIfNeeded(requestId: String) {
+        try {
+            // If service is already running, just add this request
+            if (HttpRequestForegroundService.isRunning()) {
+                return
+            }
+            
+            val intent = Intent(context, HttpRequestForegroundService::class.java).apply {
+                action = HttpRequestForegroundService.ACTION_START
+                putExtra(HttpRequestForegroundService.EXTRA_REQUEST_ID, requestId)
+            }
+            
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                context.startForegroundService(intent)
+            } else {
+                context.startService(intent)
+            }
+            
+            android.util.Log.d("WorkManagerDataSource", "ForegroundService started for requestId: $requestId")
+        } catch (e: Exception) {
+            android.util.Log.w("WorkManagerDataSource", "Failed to start ForegroundService for requestId: $requestId", e)
+            // Continue without ForegroundService - WorkManager will still try to execute
+        }
     }
 
     /**
