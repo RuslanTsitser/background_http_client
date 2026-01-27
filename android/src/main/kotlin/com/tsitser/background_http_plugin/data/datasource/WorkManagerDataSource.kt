@@ -72,16 +72,15 @@ class WorkManagerDataSource(private val context: Context) {
      */
     fun startForegroundServiceIfNeeded(requestId: String) {
         try {
-            // If service is already running, just add this request
-            if (HttpRequestForegroundService.isRunning()) {
-                return
-            }
-            
             val intent = Intent(context, HttpRequestForegroundService::class.java).apply {
                 action = HttpRequestForegroundService.ACTION_START
                 putExtra(HttpRequestForegroundService.EXTRA_REQUEST_ID, requestId)
             }
             
+            if (HttpRequestForegroundService.isRunning()) {
+                android.util.Log.d("WorkManagerDataSource", "ForegroundService already running, adding requestId: $requestId")
+            }
+
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
                 context.startForegroundService(intent)
             } else {
