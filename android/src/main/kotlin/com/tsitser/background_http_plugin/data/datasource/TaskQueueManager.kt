@@ -12,7 +12,8 @@ import org.json.JSONArray
 import java.io.File
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.CopyOnWriteArraySet
-
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 /**
  * Task queue manager for controlling the number of concurrent requests.
  *
@@ -75,6 +76,18 @@ class TaskQueueManager(private val context: Context) {
         // Sync active tasks with WorkManager asynchronously
         scope.launch {
             syncActiveTasksWithWorkManager()
+        }
+
+        scope.launch {
+            val fileStorage = FileStorageDataSource(context)
+            while (isActive) {
+                try {
+                    syncQueueState(fileStorage)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Periodic queue sync failed", e)
+                }
+                delay(30_000)
+            }
         }
     }
     
