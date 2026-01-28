@@ -1,6 +1,7 @@
 package com.tsitser.background_http_plugin.data.datasource
 
 import android.content.Context
+import android.content.Intent
 import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
@@ -35,6 +36,16 @@ class HttpRequestWorker(
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
         val requestId = inputData.getString(KEY_REQUEST_ID)
             ?: return@withContext Result.failure()
+
+        Log.d(TAG, "Starting HTTP request worker for requestId: $requestId")
+        
+        // ForegroundService should already be started from app context (WorkManagerDataSource)
+        // Workers cannot start ForegroundService on Android 12+, so we just verify it's running
+        if (!HttpRequestForegroundService.isRunning()) {
+            Log.w(TAG, "ForegroundService not running for requestId: $requestId - network may be blocked")
+        } else {
+            Log.d(TAG, "ForegroundService is running for requestId: $requestId")
+        }
 
         try {
             val taskInfo = fileStorage.loadTaskInfo(requestId)
@@ -126,7 +137,9 @@ class HttpRequestWorker(
             }
 
             // Execute request
+            Log.d(TAG, "Executing HTTP request for requestId: $requestId, url: $requestUrl")
             val response = client.newCall(requestBuilder.build()).execute()
+            Log.d(TAG, "HTTP request completed for requestId: $requestId, status: ${response.code}")
 
             // Handle response
             val responseBody = response.body?.string()
@@ -157,8 +170,16 @@ class HttpRequestWorker(
             
             // Send event only on successful completion
             if (status == RequestStatus.COMPLETED) {
+                Log.d(TAG, "Request completed successfully for requestId: $requestId")
                 sendTaskCompletedEvent(requestId)
+            } else {
+                Log.w(TAG, "Request failed for requestId: $requestId, status: $status")
             }
+
+            Log.d(TAG, "HTTP request worker finished for requestId: $requestId")
+            
+            // Stop ForegroundService after request is completed
+            stopForegroundService()
 
             Result.success()
         } catch (e: CancellationException) {
@@ -166,17 +187,31 @@ class HttpRequestWorker(
             // But we must notify the queue manager to free the slot!
             Log.d(TAG, "Request $requestId was cancelled")
             notifyTaskCompleted(requestId)
+            
+            // Stop ForegroundService on cancellation
+            stopForegroundService()
+            
             // Rethrow to let WorkManager handle the cancellation correctly
             throw e
         } catch (e: Exception) {
             Log.e(TAG, "Error executing request $requestId", e)
             
             // Check whether this is a network error that can be retried
+            // Include SocketException and connection abort errors (common in Android 15+ background)
             val isNetworkError = e is java.net.UnknownHostException ||
                     e is java.net.ConnectException ||
                     e is java.net.SocketTimeoutException ||
+                    e is java.net.SocketException ||
                     e is javax.net.ssl.SSLException ||
-                    (e is java.io.IOException && e.message?.contains("network", ignoreCase = true) == true)
+                    e is javax.net.ssl.SSLHandshakeException ||
+                    (e is java.io.IOException && (
+                        e.message?.contains("network", ignoreCase = true) == true ||
+                        e.message?.contains("connection abort", ignoreCase = true) == true ||
+                        e.message?.contains("connection closed", ignoreCase = true) == true ||
+                        e.message?.contains("connection reset", ignoreCase = true) == true
+                    )) ||
+                    (e.cause is java.net.SocketException) ||
+                    (e.cause is java.io.EOFException)
             
             // Check whether this is specifically a "no internet" error.
             // When there is no internet, WorkManager itself will wait for connectivity
@@ -198,6 +233,9 @@ class HttpRequestWorker(
             // Do not send event on errors – only on successful completion
             // But notify the queue about completion (to start the next task)
             notifyTaskCompleted(requestId)
+            
+            // Stop ForegroundService on error
+            stopForegroundService()
             
             // For network errors WorkManager will retry the task.
             // WorkManager has a NetworkType.CONNECTED constraint, so when there is no internet
@@ -313,6 +351,24 @@ class HttpRequestWorker(
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error notifying queue manager about task completion for $requestId", e)
+        }
+    }
+    
+    
+    /**
+     * Stops ForegroundService after request is completed.
+     * Only stops if no other requests are active.
+     */
+    private fun stopForegroundService() {
+        try {
+            val intent = Intent(applicationContext, HttpRequestForegroundService::class.java).apply {
+                action = HttpRequestForegroundService.ACTION_STOP
+                putExtra(HttpRequestForegroundService.EXTRA_REQUEST_ID, inputData.getString(KEY_REQUEST_ID))
+            }
+            applicationContext.startService(intent)
+            Log.d(TAG, "ForegroundService stop requested")
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to stop ForegroundService", e)
         }
     }
 }

@@ -1,6 +1,7 @@
 package com.tsitser.background_http_plugin.presentation.handler
 
 import android.content.Context
+import com.tsitser.background_http_plugin.data.datasource.WorkManagerDataSource
 import com.tsitser.background_http_plugin.data.mapper.RequestMapper
 import com.tsitser.background_http_plugin.data.mapper.TaskInfoMapper
 import com.tsitser.background_http_plugin.data.repository.TaskRepositoryImpl
@@ -23,6 +24,7 @@ class MethodCallHandler(private val context: Context) : MethodChannel.MethodCall
     private val getResponseUseCase = GetResponseUseCase(repository)
     private val cancelRequestUseCase = CancelRequestUseCase(repository)
     private val deleteRequestUseCase = DeleteRequestUseCase(repository)
+    private val workManagerDataSource = WorkManagerDataSource(context)
 
     private val scope = CoroutineScope(Dispatchers.Main)
 
@@ -62,6 +64,12 @@ class MethodCallHandler(private val context: Context) : MethodChannel.MethodCall
                     val taskInfo = withContext(Dispatchers.IO) {
                         createRequestUseCase(request)
                     }
+                    
+                    // Start ForegroundService from UI context (MethodCallHandler is called from Flutter UI)
+                    // This is required on Android 12+ where ForegroundService can only be started from UI context
+                    // Start after task is created to use the actual requestId
+                    workManagerDataSource.startForegroundServiceIfNeeded(taskInfo.id)
+                    
                     val response = TaskInfoMapper.toFlutterMap(taskInfo)
                     result.success(response)
                 } catch (e: Exception) {
