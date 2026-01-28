@@ -1,9 +1,16 @@
 package com.tsitser.background_http_plugin.data.datasource
 
+import android.app.ActivityManager
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
-import android.content.Intent
+import android.content.pm.ServiceInfo
+import android.os.Build
 import android.util.Log
+import androidx.core.app.NotificationCompat
 import androidx.work.CoroutineWorker
+import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
 import com.tsitser.background_http_plugin.domain.entity.RequestStatus
 import com.tsitser.background_http_plugin.presentation.handler.TaskCompletedEventStreamHandler
@@ -31,6 +38,8 @@ class HttpRequestWorker(
     companion object {
         const val KEY_REQUEST_ID = "request_id"
         private const val TAG = "HttpRequestWorker"
+        private const val CHANNEL_ID = "background_http_client_channel"
+        private const val NOTIFICATION_ID = 1
     }
 
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
@@ -38,13 +47,17 @@ class HttpRequestWorker(
             ?: return@withContext Result.failure()
 
         Log.d(TAG, "Starting HTTP request worker for requestId: $requestId")
-        
-        // ForegroundService should already be started from app context (WorkManagerDataSource)
-        // Workers cannot start ForegroundService on Android 12+, so we just verify it's running
-        if (!HttpRequestForegroundService.isRunning()) {
-            Log.w(TAG, "ForegroundService not running for requestId: $requestId - network may be blocked")
-        } else {
-            Log.d(TAG, "ForegroundService is running for requestId: $requestId")
+
+        // Run as foreground worker when app is in foreground (Android 12+ restriction)
+        // If app is in background for too long, starting foreground service is not allowed.
+        try {
+            if (isAppInForeground()) {
+                setForeground(createForegroundInfo(requestId))
+            } else {
+                Log.w(TAG, "App in background; skipping ForegroundInfo for requestId: $requestId")
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to set ForegroundInfo for requestId: $requestId", e)
         }
 
         try {
@@ -177,9 +190,6 @@ class HttpRequestWorker(
             }
 
             Log.d(TAG, "HTTP request worker finished for requestId: $requestId")
-            
-            // Stop ForegroundService after request is completed
-            stopForegroundService()
 
             Result.success()
         } catch (e: CancellationException) {
@@ -187,9 +197,6 @@ class HttpRequestWorker(
             // But we must notify the queue manager to free the slot!
             Log.d(TAG, "Request $requestId was cancelled")
             notifyTaskCompleted(requestId)
-            
-            // Stop ForegroundService on cancellation
-            stopForegroundService()
             
             // Rethrow to let WorkManager handle the cancellation correctly
             throw e
@@ -233,9 +240,6 @@ class HttpRequestWorker(
             // Do not send event on errors – only on successful completion
             // But notify the queue about completion (to start the next task)
             notifyTaskCompleted(requestId)
-            
-            // Stop ForegroundService on error
-            stopForegroundService()
             
             // For network errors WorkManager will retry the task.
             // WorkManager has a NetworkType.CONNECTED constraint, so when there is no internet
@@ -353,22 +357,65 @@ class HttpRequestWorker(
             Log.e(TAG, "Error notifying queue manager about task completion for $requestId", e)
         }
     }
-    
-    
-    /**
-     * Stops ForegroundService after request is completed.
-     * Only stops if no other requests are active.
-     */
-    private fun stopForegroundService() {
-        try {
-            val intent = Intent(applicationContext, HttpRequestForegroundService::class.java).apply {
-                action = HttpRequestForegroundService.ACTION_STOP
-                putExtra(HttpRequestForegroundService.EXTRA_REQUEST_ID, inputData.getString(KEY_REQUEST_ID))
+
+    private fun createForegroundInfo(requestId: String): ForegroundInfo {
+        createNotificationChannel()
+
+        val pendingIntent = PendingIntent.getActivity(
+            applicationContext,
+            0,
+            applicationContext.packageManager.getLaunchIntentForPackage(applicationContext.packageName),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val notification = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
+            .setContentTitle("Background HTTP Client")
+            .setContentText("Processing request: ${requestId.take(20)}...")
+            .setSmallIcon(android.R.drawable.stat_notify_sync)
+            .setContentIntent(pendingIntent)
+            .setOngoing(true)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setCategory(NotificationCompat.CATEGORY_SERVICE)
+            .setSilent(true)
+            .build()
+
+        val foregroundType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+        } else {
+            0
+        }
+
+        return ForegroundInfo(NOTIFICATION_ID, notification, foregroundType)
+    }
+
+    private fun createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                CHANNEL_ID,
+                "Background HTTP Requests",
+                NotificationManager.IMPORTANCE_LOW
+            ).apply {
+                description = "Shows notification when HTTP requests are being processed in background"
+                setShowBadge(false)
             }
-            applicationContext.startService(intent)
-            Log.d(TAG, "ForegroundService stop requested")
+
+            val notificationManager = applicationContext.getSystemService(NotificationManager::class.java)
+            notificationManager.createNotificationChannel(channel)
+        }
+    }
+
+    private fun isAppInForeground(): Boolean {
+        return try {
+            val activityManager = applicationContext.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+            val runningProcesses = activityManager.runningAppProcesses ?: return false
+            val packageName = applicationContext.packageName
+            runningProcesses.any { process ->
+                process.processName == packageName &&
+                    (process.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND ||
+                     process.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_VISIBLE)
+            }
         } catch (e: Exception) {
-            Log.w(TAG, "Failed to stop ForegroundService", e)
+            false
         }
     }
 }

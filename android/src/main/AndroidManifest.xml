@@ -1,4 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+  xmlns:tools="http://schemas.android.com/tools"
   package="com.tsitser.background_http_plugin">
   <uses-permission android:name="android.permission.INTERNET" />
   <!-- Permissions for background work -->
@@ -17,5 +18,11 @@
       android:enabled="true"
       android:exported="false"
       android:foregroundServiceType="dataSync" />
+    <service
+      android:name="androidx.work.impl.foreground.SystemForegroundService"
+      android:exported="false"
+      android:foregroundServiceType="dataSync"
+      tools:node="merge"
+      tools:replace="android:foregroundServiceType" />
   </application>
 </manifest>
