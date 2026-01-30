@@ -1,8 +1,16 @@
 package com.tsitser.background_http_plugin.data.datasource
 
+import android.app.ActivityManager
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
+import android.content.pm.ServiceInfo
+import android.os.Build
 import android.util.Log
+import androidx.core.app.NotificationCompat
 import androidx.work.CoroutineWorker
+import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
 import com.tsitser.background_http_plugin.domain.entity.RequestStatus
 import com.tsitser.background_http_plugin.presentation.handler.TaskCompletedEventStreamHandler
@@ -30,11 +38,27 @@ class HttpRequestWorker(
     companion object {
         const val KEY_REQUEST_ID = "request_id"
         private const val TAG = "HttpRequestWorker"
+        private const val CHANNEL_ID = "background_http_client_channel"
+        private const val NOTIFICATION_ID = 1
     }
 
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
         val requestId = inputData.getString(KEY_REQUEST_ID)
             ?: return@withContext Result.failure()
+
+        Log.d(TAG, "Starting HTTP request worker for requestId: $requestId")
+
+        // Run as foreground worker when app is in foreground (Android 12+ restriction)
+        // If app is in background for too long, starting foreground service is not allowed.
+        try {
+            if (isAppInForeground()) {
+                setForeground(createForegroundInfo(requestId))
+            } else {
+                Log.w(TAG, "App in background; skipping ForegroundInfo for requestId: $requestId")
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to set ForegroundInfo for requestId: $requestId", e)
+        }
 
         try {
             val taskInfo = fileStorage.loadTaskInfo(requestId)
@@ -126,7 +150,9 @@ class HttpRequestWorker(
             }
 
             // Execute request
+            Log.d(TAG, "Executing HTTP request for requestId: $requestId, url: $requestUrl")
             val response = client.newCall(requestBuilder.build()).execute()
+            Log.d(TAG, "HTTP request completed for requestId: $requestId, status: ${response.code}")
 
             // Handle response
             val responseBody = response.body?.string()
@@ -157,8 +183,13 @@ class HttpRequestWorker(
             
             // Send event only on successful completion
             if (status == RequestStatus.COMPLETED) {
+                Log.d(TAG, "Request completed successfully for requestId: $requestId")
                 sendTaskCompletedEvent(requestId)
+            } else {
+                Log.w(TAG, "Request failed for requestId: $requestId, status: $status")
             }
+
+            Log.d(TAG, "HTTP request worker finished for requestId: $requestId")
 
             Result.success()
         } catch (e: CancellationException) {
@@ -166,17 +197,28 @@ class HttpRequestWorker(
             // But we must notify the queue manager to free the slot!
             Log.d(TAG, "Request $requestId was cancelled")
             notifyTaskCompleted(requestId)
+            
             // Rethrow to let WorkManager handle the cancellation correctly
             throw e
         } catch (e: Exception) {
             Log.e(TAG, "Error executing request $requestId", e)
             
             // Check whether this is a network error that can be retried
+            // Include SocketException and connection abort errors (common in Android 15+ background)
             val isNetworkError = e is java.net.UnknownHostException ||
                     e is java.net.ConnectException ||
                     e is java.net.SocketTimeoutException ||
+                    e is java.net.SocketException ||
                     e is javax.net.ssl.SSLException ||
-                    (e is java.io.IOException && e.message?.contains("network", ignoreCase = true) == true)
+                    e is javax.net.ssl.SSLHandshakeException ||
+                    (e is java.io.IOException && (
+                        e.message?.contains("network", ignoreCase = true) == true ||
+                        e.message?.contains("connection abort", ignoreCase = true) == true ||
+                        e.message?.contains("connection closed", ignoreCase = true) == true ||
+                        e.message?.contains("connection reset", ignoreCase = true) == true
+                    )) ||
+                    (e.cause is java.net.SocketException) ||
+                    (e.cause is java.io.EOFException)
             
             // Check whether this is specifically a "no internet" error.
             // When there is no internet, WorkManager itself will wait for connectivity
@@ -313,6 +355,67 @@ class HttpRequestWorker(
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error notifying queue manager about task completion for $requestId", e)
+        }
+    }
+
+    private fun createForegroundInfo(requestId: String): ForegroundInfo {
+        createNotificationChannel()
+
+        val pendingIntent = PendingIntent.getActivity(
+            applicationContext,
+            0,
+            applicationContext.packageManager.getLaunchIntentForPackage(applicationContext.packageName),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val notification = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
+            .setContentTitle("Background HTTP Client")
+            .setContentText("Processing request: ${requestId.take(20)}...")
+            .setSmallIcon(android.R.drawable.stat_notify_sync)
+            .setContentIntent(pendingIntent)
+            .setOngoing(true)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setCategory(NotificationCompat.CATEGORY_SERVICE)
+            .setSilent(true)
+            .build()
+
+        val foregroundType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+        } else {
+            0
+        }
+
+        return ForegroundInfo(NOTIFICATION_ID, notification, foregroundType)
+    }
+
+    private fun createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                CHANNEL_ID,
+                "Background HTTP Requests",
+                NotificationManager.IMPORTANCE_LOW
+            ).apply {
+                description = "Shows notification when HTTP requests are being processed in background"
+                setShowBadge(false)
+            }
+
+            val notificationManager = applicationContext.getSystemService(NotificationManager::class.java)
+            notificationManager.createNotificationChannel(channel)
+        }
+    }
+
+    private fun isAppInForeground(): Boolean {
+        return try {
+            val activityManager = applicationContext.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+            val runningProcesses = activityManager.runningAppProcesses ?: return false
+            val packageName = applicationContext.packageName
+            runningProcesses.any { process ->
+                process.processName == packageName &&
+                    (process.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND ||
+                     process.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_VISIBLE)
+            }
+        } catch (e: Exception) {
+            false
         }
     }
 }

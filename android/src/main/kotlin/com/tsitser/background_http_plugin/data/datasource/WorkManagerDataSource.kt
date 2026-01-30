@@ -1,11 +1,15 @@
 package com.tsitser.background_http_plugin.data.datasource
 
 import android.content.Context
+import androidx.work.BackoffPolicy
 import androidx.work.Constraints
+import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
+import androidx.work.OutOfQuotaPolicy
+import java.util.concurrent.TimeUnit
 import com.google.common.util.concurrent.ListenableFuture
 import java.util.concurrent.ExecutionException
 
@@ -27,12 +31,20 @@ class WorkManagerDataSource(private val context: Context) {
 
     /**
      * Enqueues an HTTP request task in WorkManager.
+     * Configured for background execution when app is minimized.
+     *
+     * Note: On Android 12+ use ForegroundInfo inside Worker to keep
+     * network access in background.
      */
     fun enqueueRequest(requestId: String) {
         val workRequest = OneTimeWorkRequestBuilder<HttpRequestWorker>()
             .setConstraints(
                 Constraints.Builder()
                     .setRequiredNetworkType(NetworkType.CONNECTED)
+                    // Allow execution even when device is in battery saver mode
+                    .setRequiresBatteryNotLow(false)
+                    // Allow execution even when storage is low
+                    .setRequiresStorageNotLow(false)
                     .build()
             )
             .setInputData(
@@ -41,11 +53,39 @@ class WorkManagerDataSource(private val context: Context) {
                     .build()
             )
             .addTag("request_$requestId")
+            // Try to start immediately while app is in foreground (Android 12+ restriction)
+            .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
+            // Set backoff policy for retries (exponential backoff)
+            .setBackoffCriteria(
+                BackoffPolicy.EXPONENTIAL,
+                30,
+                TimeUnit.SECONDS
+            )
             .build()
 
-        workManager.enqueue(workRequest)
+        // Use unique work name to prevent duplicates
+        workManager.enqueueUniqueWork(
+            "request_$requestId",
+            ExistingWorkPolicy.KEEP,
+            workRequest
+        )
     }
 
+    /**
+     * Enqueues a queue processor worker to ensure pending tasks are drained
+     * even if the app process is killed.
+     */
+    fun enqueueQueueProcessor() {
+        val workRequest = OneTimeWorkRequestBuilder<QueueProcessorWorker>()
+            .build()
+
+        workManager.enqueueUniqueWork(
+            "background_http_client_queue_processor",
+            ExistingWorkPolicy.KEEP,
+            workRequest
+        )
+    }
+    
     /**
      * Cancels all tasks for the given request.
      */

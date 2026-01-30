@@ -62,6 +62,7 @@ class MethodCallHandler(private val context: Context) : MethodChannel.MethodCall
                     val taskInfo = withContext(Dispatchers.IO) {
                         createRequestUseCase(request)
                     }
+
                     val response = TaskInfoMapper.toFlutterMap(taskInfo)
                     result.success(response)
                 } catch (e: Exception) {
